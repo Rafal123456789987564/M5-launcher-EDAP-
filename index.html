@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>EDAP Market — programy dla ESP32</title>
+<style>
+:root{font:16px/1.5 system-ui,Arial,sans-serif;color:#eff3fa;background:#0b101a}
+*{box-sizing:border-box}body{margin:0}a{color:inherit}
+header{background:linear-gradient(120deg,#123a56,#12182b);border-bottom:1px solid #284257;padding:34px 20px}
+main,header>div,footer>div{max-width:980px;margin:auto}
+h1{font-size:clamp(2.2rem,7vw,4rem);margin:0;letter-spacing:-.06em}
+.tag{letter-spacing:.2em;color:#8ae1f5;font-weight:750;font-size:.8rem}
+p{color:#adb9cb;margin:8px 0 16px}
+section{margin:24px 14px;padding:22px;background:#171e2c;border:1px solid #2b394b;border-radius:20px}
+h2{font-size:1.3rem;margin:0 0 8px}.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+input[type=search]{width:100%;border:1px solid #465368;background:#0d1421;color:white;border-radius:12px;padding:14px;font-size:1rem}
+.file{padding:19px 0;border-bottom:1px solid #344254}
+.file:last-child{border-bottom:0}.name{font-size:1.15rem;font-weight:750;overflow-wrap:anywhere}
+.meta{font-size:.81rem;color:#9bacbf;margin:5px 0 12px;overflow-wrap:anywhere}
+.actions{display:flex;gap:9px;flex-wrap:wrap}
+button,.btn{cursor:pointer;border:1px solid #41556f;background:#263852;color:white;border-radius:10px;padding:11px 14px;text-decoration:none;font:600 .9rem system-ui}
+.btn.primary,button.primary{background:#59d0e4;color:#05202b;border-color:#59d0e4}
+button:hover,.btn:hover{filter:brightness(1.15)}
+button:disabled{opacity:.5;cursor:not-allowed}
+label.upload{display:inline-flex;align-items:center;justify-content:center;border:1px dashed #7186a1;padding:15px;border-radius:12px;cursor:pointer;max-width:100%;overflow-wrap:anywhere}
+.upload input{display:none}
+.notice{background:#202c3d;padding:12px;border-left:3px solid #69bedb;border-radius:6px;color:#cfdaed}
+#error{color:#ffadb0}
+small,footer{color:#9aa9bc}
+code{overflow-wrap:anywhere}
+footer{padding:20px 20px 40px;text-align:center}
+</style>
+</head>
+<body>
+<header><div><div class="tag">EDAP • VISUINO • ESP32</div><h1>EDAP MARKET</h1><p>Publiczne firmware do CYD, M5Stack i innych modułów ESP32. Pliki pobierane bezpośrednio z GitHuba.</p></div></header>
+<main>
+<section>
+<h2>Katalog programów</h2>
+<p id="status" role="status">Ładowanie katalogu z GitHub…</p>
+<input id="search" type="search" placeholder="Szukaj programu lub nazwy pliku…" aria-label="Szukaj programu">
+<div id="apps"></div>
+<p id="error" role="alert"></p>
+<button id="refresh" type="button">Odśwież listę</button>
+</section>
+<section>
+<h2>M5Launcher — przygotuj Favorites</h2>
+<p>Wskaż swój istniejący <code>config.conf</code> z karty SD. Market doda/odświeży wpisy EDAP w <code>favorite</code>, nie zmieniając pozostałych ustawień.</p>
+<div class="notice"><strong>Bezpieczeństwo:</strong> plik konfiguracyjny jest przetwarzany wyłącznie w Twojej przeglądarce; hasła Wi-Fi nie są wysyłane do marketu.</div>
+<div class="toolbar">
+<label class="upload">1. Wybierz config.conf <input type="file" id="config" accept=".conf,.json,text/plain"></label>
+<button id="export" class="primary" disabled>2. Pobierz nowy config.conf</button>
+<button id="copy" type="button" disabled>Kopiuj wpisy favorite</button>
+</div>
+<p id="cfgstatus" role="status">Nie wybrano pliku.</p>
+<p><small>Po pobraniu zastąp <code>config.conf</code> na SD i uruchom M5Launcher ponownie. Z menu <strong>OTA → Favorite List</strong> możesz instalować programy.</small></p>
+</section>
+<section>
+<h2>Jak publikować nowe programy?</h2>
+<p>Prześlij skompilowany plik <code>.bin</code> do publicznego repozytorium na gałęzi <code>main</code>. Odśwież ten market — program pojawi się automatycznie. Aby dodać go do M5Launchera, wygeneruj ponownie <code>config.conf</code>.</p>
+<a class="btn" href="https://github.com/Rafal123456789987564/M5-launcher-EDAP-" target="_blank" rel="noopener">Otwórz repozytorium GitHub ↗</a>
+<p><small>Przed instalacją sprawdź, czy binarka jest zgodna z konkretną płytką. Samo pobranie .bin nie uruchamia flashowania.</small></p>
+</section>
+</main>
+<footer><div>© 2026 EDAP · All rights reserved · <a href="https://github.com/Rafal123456789987564/M5-launcher-EDAP-/blob/main/License">Warunki licencji</a></div></footer>
+<script>
+'use strict';
+const OWNER='Rafal123456789987564', REPO='M5-launcher-EDAP-', BRANCH='main';
+const ROOT='https://raw.githubusercontent.com/'+OWNER+'/'+REPO+'/'+BRANCH+'/';
+const API='https://api.github.com/repos/'+OWNER+'/'+REPO+'/git/trees/'+BRANCH+'?recursive=1';
+const $=id=>document.getElementById(id);
+let items=[], config=null;
+function niceName(path){return path.split('/').pop().replace(/\.bin$/i,'').replace(/[_-]+/g,' ')}
+function fileUrl(path){return ROOT+path.split('/').map(encodeURIComponent).join('/')}
+function fmtSize(size){return size<1048576?(size/1024).toFixed(0)+' KB':(size/1048576).toFixed(2)+' MB'}
+function el(tag,className,text){const a=document.createElement(tag);if(className)a.className=className;if(text!==undefined)a.textContent=text;return a}
+function btn(label,fn){const b=el('button','',label);b.type='button';b.addEventListener('click',fn);return b}
+function download(name,content,type='application/json'){
+ const u=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');
+ a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000)
+}
+async function load(){
+ $('error').textContent='';$('status').textContent='Sprawdzanie GitHuba…';
+ try{
+ const res=await fetch(API,{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
+ if(!res.ok)throw Error('GitHub API HTTP '+res.status+' — spróbuj odświeżyć później.');
+ const data=await res.json();
+ if(data.truncated)throw Error('Repozytorium jest za duże, aby odczytać pełen katalog.');
+ items=(data.tree||[]).filter(x=>x.type==='blob'&&/\.bin$/i.test(x.path)).map(x=>({
+ name:niceName(x.path),path:x.path,size:x.size||0,url:fileUrl(x.path)
+ })).sort((a,b)=>a.name.localeCompare(b.name,'pl'));
+ $('status').textContent='Dostępne programy: '+items.length;
+ render();$('copy').disabled=!items.length;$('export').disabled=!items.length||!config;
+ }catch(e){$('status').textContent='Nie udało się pobrać listy.';$('error').textContent=e.message}
+}
+function render(){
+ const target=$('apps');target.replaceChildren();
+ const term=$('search').value.toLocaleLowerCase('pl');
+ const matches=items.filter(x=>x.name.toLocaleLowerCase('pl').includes(term)||x.path.toLocaleLowerCase('pl').includes(term));
+ if(!matches.length){target.append(el('p','',items.length?'Brak wyników.':'Brak plików .bin w repozytorium.'));return}
+ matches.forEach(x=>{
+ const wrap=el('article','file'), title=el('div','name',x.name),meta=el('div','meta',x.path+' · '+fmtSize(x.size)),act=el('div','actions');
+ const a=el('a','btn primary','Pobierz .bin');a.href=x.url;a.target='_blank';a.rel='noopener';a.download=x.path.split('/').pop();
+ act.append(a,btn('Kopiuj link',async()=>{try{await navigator.clipboard.writeText(x.url)}catch{prompt('Skopiuj adres pliku:',x.url)}}));
+ wrap.append(title,meta,act);target.append(wrap);
+ });
+}
+function edapFav(){return items.map(x=>({name:'EDAP - '+x.name,fid:'',link:x.url}))}
+function mergeConfig(){
+ if(!Array.isArray(config)||!config[0]||typeof config[0]!=='object')throw Error('Nieprawidłowy format config.conf');
+ const copy=JSON.parse(JSON.stringify(config)),current=Array.isArray(copy[0].favorite)?copy[0].favorite:[];
+ const own=current.filter(x=>!(x && typeof x.link==='string'&&x.link.startsWith(ROOT)));
+ const seen=new Set(own.map(x=>x.link));
+ copy[0].favorite=own.concat(edapFav().filter(x=>!seen.has(x.link)));
+ return copy;
+}
+$('search').addEventListener('input',render);
+$('refresh').addEventListener('click',load);
+$('config').addEventListener('change',async e=>{
+ try{
+ const f=e.target.files[0];if(!f)return;
+ config=JSON.parse(await f.text());mergeConfig();
+ $('cfgstatus').textContent='Wczytano '+f.name+'. Możesz wygenerować konfigurację.';
+ $('export').disabled=!items.length;
+ }catch(err){config=null;$('export').disabled=true;$('cfgstatus').textContent='Błąd: '+err.message}
+});
+$('export').addEventListener('click',()=>{
+ try{download('config.conf',JSON.stringify(mergeConfig(),null,2)+'\n','text/plain');$('cfgstatus').textContent='Pobrano nowy config.conf. Wgraj go na kartę SD.'}
+ catch(e){$('cfgstatus').textContent='Błąd: '+e.message}
+});
+$('copy').addEventListener('click',async()=>{
+ const t=JSON.stringify(edapFav(),null,2);
+ try{await navigator.clipboard.writeText(t);$('cfgstatus').textContent='Skopiowano tablicę favorite.'}catch{prompt('Skopiuj wpisy favorite:',t)}
+});
+load();
+</script>
+</body>
+</html>
