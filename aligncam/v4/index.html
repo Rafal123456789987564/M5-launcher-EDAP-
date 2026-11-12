@@ -310,6 +310,81 @@ function qualityOf(fit){if(!fit)return 'NO TARGET';if(!fit.valid)return 'LOW QUA
 function qualityClass(x){return x==='GOOD'?'good':x==='WRONG TARGET'?'bad':'';}
 function fitFor(markers,kind){return G.fitBoard(markers,kind,rawCanvas.width,rawCanvas.height,ownCalibration);}
 function correctLevelStatus(v,fit){if(!fit||!fit.valid)return '—';if(!Number.isFinite(v.level))return 'UNAVAILABLE';return `${v.level.toFixed(1)}°`+(v.level<=3?' ✓':' !');}
+
+let phoneZero=null, wheelTargetZero=null, lastLevelDraw=0, lastRemoteSensorTime=0;
+function currentPhoneLevel(){
+ if(!gravity||Date.now()-gravTime>2500)return null;
+ const g=gravity;
+ const horiz=Math.hypot(g[0],g[1]);
+ const lean=Math.atan2(g[2],horiz)*180/Math.PI;
+ const verticalError=Math.abs(lean);
+ const roll=Math.atan2(g[0],Math.abs(g[1]))*180/Math.PI;
+ if(![lean,verticalError,roll].every(Number.isFinite))return null;
+ const flatError=90-verticalError;
+ const state=verticalError<=1&&Math.abs(roll)<=1?'VERTICAL 0°':
+             flatError<=1?'HORIZONTAL 0°':'TILTED — ALIGN PHONE';
+ return {lean,roll,verticalError,flatError,relativeLean:phoneZero?lean-phoneZero.lean:null,relativeRoll:phoneZero?roll-phoneZero.roll:null,
+         state,zeroSet:!!phoneZero,updatedAt:Date.now(),source:sensorSource};
+}
+function paintPhoneLevel(name,data){
+ const field=id=>$(name+id),circle=field('Bubble'),dot=field('Dot'),state=field('PhoneState'),overlay=field('PhoneOverlay');
+ const valid=data&&Number.isFinite(data.verticalError)&&Number.isFinite(data.roll);
+ const show=(id,n)=>{field(id).textContent=valid&&Number.isFinite(n)?n.toFixed(1)+'°':'—';};
+ show('VerticalAbs',data?.verticalError);show('RollAbs',data?.roll);show('LeanRel',data?.relativeLean);show('RollRel',data?.relativeRoll);
+ const green=!!valid&&data.verticalError<=1&&Math.abs(data.roll)<=1;
+ circle.classList.toggle('good',green);state.classList.toggle('good',green);
+ state.textContent=!valid?'SENSOR UNAVAILABLE':green?'VERTICAL — ALIGNED':data.state;
+ if(dot){dot.style.left=(valid?Math.max(10,Math.min(90,50+data.roll*2)):50)+'%';
+         dot.style.top=(valid?Math.max(10,Math.min(90,50+data.lean*2)):50)+'%';}
+ if(overlay){overlay.textContent=valid?('PHONE '+(green?'LEVEL':'TILTED')+' · '+data.verticalError.toFixed(1)+'° / '+data.roll.toFixed(1)+'°'):'PHONE LEVEL UNAVAILABLE';overlay.classList.toggle('good',green);}
+}
+function refreshPhoneLevels(){
+ const localName=peerRole==='RIGHT'?'right':'left';
+ const remoteName=localName==='left'?'right':'left';
+ const own=currentPhoneLevel();
+ const other=(Date.now()-lastRemoteSensorTime<2800)?lastOther?.phoneLevel:null;
+ paintPhoneLevel(localName,own);paintPhoneLevel(remoteName,other);
+}
+function setPhoneZeroLocal(){
+ const v=currentPhoneLevel();
+ if(!v){warn('Phone ZERO unavailable. Enable the motion sensor and wait for live readings.');return false;}
+ phoneZero={lean:v.lean,roll:v.roll};
+ refreshPhoneLevels();warn('Phone relative ZERO saved. Absolute vertical error is unchanged.');
+ return true;
+}
+function clearPhoneZeroLocal(){phoneZero=null;refreshPhoneLevels();warn('Phone relative ZERO cleared. Absolute level is still visible.');}
+function setPhoneZeroBoth(){
+ setPhoneZeroLocal();send({type:'phoneZeroCmd',action:'set'});
+}
+function clearPhoneZeroBoth(){
+ clearPhoneZeroLocal();send({type:'phoneZeroCmd',action:'clear'});
+}
+function armReferenceLocal(){
+ ownRef=null;wheelTargetZero=null;autoRefDone=false;stableFrames=0;otherRef=false;
+ setText('referenceStatus','Reference armed — show REF board to both cameras.');
+ setStep(2);resetFilter();warn('REF ZERO armed. Hold the fixed REF board steady for automatic capture.');
+}
+function armReferenceBoth(){
+ armReferenceLocal();send({type:'refArmCmd'});
+}
+function setWheelTargetZeroLocal(){
+ if(!lastOwn?.filterStable||!['GOOD','FAIR'].includes(lastOwn.status)||!Number.isFinite(lastOwn.relativeYaw)){
+  warn('Wheel target ZERO not saved. Show the correct wheel target, with REF already captured, until STABLE.');return false;
+ }
+ wheelTargetZero=lastOwn.relativeYaw;
+ warn('Wheel target ZERO saved. Display now shows change since that reading.');return true;
+}
+function setWheelTargetZeroBoth(){
+ setWheelTargetZeroLocal();send({type:'wheelZeroCmd',action:'set'});
+}
+function clearWheelTargetZeroBoth(){
+ wheelTargetZero=null;send({type:'wheelZeroCmd',action:'clear'});warn('Wheel target relative ZERO cleared (both phones).');
+}
+function displayedToe(r){
+ if(!r||!Number.isFinite(r.relativeYaw))return null;
+ const offset=r===lastOwn?wheelTargetZero:r.targetZero;
+ return r.relativeYaw-(Number.isFinite(offset)?offset:0);
+}
 function refreshSensorChips(){
  const local=peerRole==='RIGHT'?'right':'left',other=peerRole==='RIGHT'?'left':'right';
  const localLive=!!gravity&&Date.now()-gravTime<2500;
