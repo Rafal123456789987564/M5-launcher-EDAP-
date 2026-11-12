@@ -1,0 +1,27 @@
+ALIGNCAM V4 - PROPRIETARY PERSONAL/INTERNAL NON-COMMERCIAL LICENSE
+Copyright (c) 2026 EDAP. All rights reserved.
+
+1. Permission is granted solely to the copyright holder and persons expressly
+   authorized in writing by the copyright holder to use the original ALIGNCAM
+   V4 application for personal, internal, non-commercial evaluation.
+
+2. Without prior express written permission from the copyright holder, the
+   application, its documentation, marker layouts and original source code
+   may NOT be copied for distribution, sublicensed, sold, rented, monetized,
+   publicly republished, incorporated into other products, used commercially,
+   or offered as a service.
+
+3. Public availability of source files on GitHub does NOT constitute a grant
+   of commercial use rights or permission to sell or redistribute.
+
+4. This software is provided "AS IS" for experimental evaluation only,
+   without warranties of measurement accuracy, merchantability or fitness
+   for a particular purpose. This software is not a certified wheel-alignment
+   instrument and must not be relied on for safety-critical vehicle work.
+
+5. Third-party components (including PeerJS, js-aruco2 and OpenCV if used)
+   are NOT covered by the proprietary restrictions above and remain licensed
+   independently under their respective MIT/BSD/Apache or other original
+   applicable licenses. Nothing in this license removes their rights.
+
+For permission, contact the copyright owner through the repository.
