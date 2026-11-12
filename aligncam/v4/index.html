@@ -114,7 +114,7 @@ if(typeof module==='object'&&module.exports)module.exports=api;else root.AlignGe
  <div>
  <div class="sectionhead">2 · Vehicle &amp; axle</div>
  <div class="flex"><label class="field">Brand<select id="make"><option>Volkswagen</option><option>Audi</option><option>SEAT</option><option>Škoda</option></select></label><label class="field">Model<select id="model"></select></label><label class="field">Year<select id="year"></select></label><label class="field">Axle<select id="axle"><option value="FRONT">FRONT</option><option value="REAR">REAR</option></select></label></div>
- <div class="helptext" id="specBadge">Factory specifications: NOT ENTERED — PR/suspension variant must be checked.</div><details id="specDetails" open style="margin-top:7px"><summary><b>EDIT / SAVE SUSPENSION ALIGNMENT VALUES</b></summary>
+ <div class="helptext" id="specBadge">Factory specifications: NOT ENTERED — PR/suspension variant must be checked.</div><details id="specDetails" style="margin-top:7px"><summary><b>ENTER / EDIT FACTORY ALIGNMENT VALUES (tap here)</b></summary>
 <div class="spec-grid">
 <label>Suspension PR code<input id="specPr" type="text" placeholder="e.g. 1BA"></label>
 <label>Suspension variant<input id="specVariant" type="text" placeholder="Sport / DCC / Standard"></label>
@@ -181,7 +181,7 @@ const specFields=['specPr','specVariant','specToe','specToeTol','specCamber','sp
 function specSelectionKey(){return ['aligncamV44spec',$('make').value,$('model').value,$('year').value,axle].join(':');}
 function specKey(pr){return specSelectionKey()+':'+(pr||'DEFAULT').trim().toUpperCase();}
 function getSpecData(){const data={};for(const id of specFields)data[id]=$(id).value.trim();return data;}
-function applySpecData(data){for(const id of specFields)$(id).value=data?.[id]??'';setText('specBadge',data?('User-entered '+axle+' specifications · PR '+(data.specPr||'—')+' · total toe '+(data.specToe||'—')+'° ±'+(data.specToeTol||'—')+'° · camber '+(data.specCamber||'—')+'° ±'+(data.specCamberTol||'—')+'° · NOT CERTIFIED'):'Suspension data: NOT ENTERED for selected model / year / axle / PR code.');}
+function applySpecData(data){for(const id of specFields)$(id).value=data?.[id]??'';setText('specBadge',data?('User-entered '+axle+' specifications · PR '+(data.specPr||'—')+' · total toe '+(data.specToe||'—')+'° ±'+(data.specToeTol||'—')+'° · camber '+(data.specCamber||'—')+'° ±'+(data.specCamberTol||'—')+'° · NOT CERTIFIED'):'Suspension data: NOT ENTERED — tap ENTER / EDIT below, select PR code and supply a source.');}
 function loadSpecData(fromUser=false){
  try{
   let pr=$('specPr').value.trim().toUpperCase();
@@ -207,6 +207,7 @@ function saveSpecData(){
   localStorage.setItem(specSelectionKey()+':activePR',data.specPr);
   applySpecData(stored);
   send({type:'spec',data:stored});
+  $('specDetails').open=false;
   warn('Vehicle reference values saved on this phone. Do not assume factory verification.');
  }catch(e){warn('Cannot save vehicle specifications: '+e.message);}
 }
@@ -354,7 +355,9 @@ function setPhoneZeroLocal(){
 }
 function clearPhoneZeroLocal(){phoneZero=null;refreshPhoneLevels();warn('Phone relative ZERO cleared. Absolute level is still visible.');}
 function setPhoneZeroBoth(){
- setPhoneZeroLocal();send({type:'phoneZeroCmd',action:'set'});
+ if(!setPhoneZeroLocal())return;
+ if(dataConn?.open)send({type:'phoneZeroCmd',action:'set'});
+ else warn('PHONE ZERO saved locally. Connect the second phone to zero both.');
 }
 function clearPhoneZeroBoth(){
  clearPhoneZeroLocal();send({type:'phoneZeroCmd',action:'clear'});
@@ -375,7 +378,9 @@ function setWheelTargetZeroLocal(){
  warn('Wheel target ZERO saved. Display now shows change since that reading.');return true;
 }
 function setWheelTargetZeroBoth(){
- setWheelTargetZeroLocal();send({type:'wheelZeroCmd',action:'set'});
+ if(!setWheelTargetZeroLocal())return;
+ if(dataConn?.open)send({type:'wheelZeroCmd',action:'set'});
+ else warn('WHEEL ZERO saved locally. Connect second phone for both sides.');
 }
 function clearWheelTargetZeroBoth(){
  wheelTargetZero=null;send({type:'wheelZeroCmd',action:'clear'});warn('Wheel target relative ZERO cleared (both phones).');
