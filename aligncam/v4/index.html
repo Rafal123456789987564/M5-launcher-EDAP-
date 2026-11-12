@@ -176,6 +176,41 @@ function setStatus(msg,ok){setText('connStatus',msg);$('connLed').classList.togg
 function setupCar(){let old=$('model').value;const models=makes[$('make').value]||[];$('model').innerHTML=models.map(x=>`<option>${x}</option>`).join('');if(models.includes(old))$('model').value=old;}
 function persistSettings(){try{localStorage.setItem('aligncamV4car',JSON.stringify({make:$('make').value,model:$('model').value,year:$('year').value}));}catch(e){}}
 function initCar(){for(let y=2027;y>=1990;y--)$('year').add(new Option(String(y),String(y)));try{const x=JSON.parse(localStorage.getItem('aligncamV4car'));if(x?.make && makes[x.make])$('make').value=x.make;setupCar();if(x?.model)$('model').value=x.model;if(x?.year)$('year').value=x.year;}catch(e){setupCar();}}
+
+const specFields=['specPr','specVariant','specToe','specToeTol','specCamber','specCamberTol','specCaster','specRide','specVin','specSource'];
+function specSelectionKey(){return ['aligncamV44spec',$('make').value,$('model').value,$('year').value,axle].join(':');}
+function specKey(pr){return specSelectionKey()+':'+(pr||'DEFAULT').trim().toUpperCase();}
+function getSpecData(){const data={};for(const id of specFields)data[id]=$(id).value.trim();return data;}
+function applySpecData(data){for(const id of specFields)$(id).value=data?.[id]??'';setText('specBadge',data?'Suspension data: USER ENTERED — check PR code, VIN and source. NOT certified.':'Suspension data: NOT ENTERED for selected model / year / axle / PR code.');}
+function loadSpecData(fromUser=false){
+ try{
+  let pr=$('specPr').value.trim().toUpperCase();
+  if(!pr)pr=localStorage.getItem(specSelectionKey()+':activePR')||'';
+  const raw=localStorage.getItem(specKey(pr));
+  let data=raw?JSON.parse(raw):null;
+  if(data&&typeof data!=='object')data=null;
+  applySpecData(data);
+  if(pr&&!data)$('specPr').value=pr;
+  if(fromUser)warn(data?'Saved vehicle specification loaded. Verify factory document.':'No saved specifications for this exact vehicle / PR / axle.');
+  if(peerRole==='LEFT')send({type:'spec',data:data||getSpecData()});
+ }catch(e){applySpecData(null);if(fromUser)warn('Failed to load specifications: '+e.message);}
+}
+function saveSpecData(){
+ try{
+  const data=getSpecData();data.specPr=data.specPr.toUpperCase();
+  if(!data.specPr){warn('Enter a suspension PR code first.');$('specPr').focus();return;}
+  const nums=['specToe','specToeTol','specCamber','specCamberTol','specCaster','specRide'];
+  for(const id of nums){if(data[id]!==''&&!Number.isFinite(Number(data[id]))){warn('Invalid numeric reference: '+id);return;}}
+  if(data.specSource){const url=new URL(data.specSource);if(!['https:','http:'].includes(url.protocol))throw Error('Source must be an HTTP(S) URL');}
+  const stored={...data,selection:{make:$('make').value,model:$('model').value,year:$('year').value,axle},savedAt:new Date().toISOString(),status:'USER ENTERED — NOT VERIFIED'};
+  localStorage.setItem(specKey(data.specPr),JSON.stringify(stored));
+  localStorage.setItem(specSelectionKey()+':activePR',data.specPr);
+  setText('specBadge','Suspension values saved for '+axle+' / PR '+data.specPr+' — USER ENTERED (UNVERIFIED)');
+  send({type:'spec',data:stored});
+  warn('Vehicle reference values saved on this phone. Do not assume factory verification.');
+ }catch(e){warn('Cannot save vehicle specifications: '+e.message);}
+}
+function onVehicleSelection(){persistSettings();$('specPr').value='';loadSpecData();sendCar();}
 function setStep(v){resetFilter();step=Math.max(0,Math.min(4,v));const names=['PRINT','PAIR','REFERENCE','FRONT','REAR'];$('steps').innerHTML=names.map((name,i)=>`<div class="step ${i===step?'active':i<step?'done':''}">${i+1}. ${name}</div>`).join('');const titles=['PRINT THE THREE A4 TARGETS','PAIR BOTH PHONES','CAPTURE ONE SHARED REFERENCE','MEASURE THE FRONT AXLE','MEASURE THE REAR AXLE'];const desc=['Use the PDF download button. Print at 100% scale on rigid flat supports.','Open this URL on both phones. Use Create room on LEFT and Join on RIGHT.','Show both cameras the same fixed REF target; a steady reference is captured automatically.','Place LEFT and RIGHT targets on front wheels. Red means wrong target.','Move target plates to rear wheels. Keep camera stand and reference unchanged if possible.'];setText('guideTitle',`STEP ${step+1} — ${titles[step]}`);setText('guideText',desc[step]);if(step===3||step===4){axle=step===3?'FRONT':'REAR';$('axle').value=axle;setText('axleLabel',axle);if(peerRole==='LEFT')send({type:'step',step,axle});} if(step!==2)autoRefDone=false;}
 function syncedStep(v){step=v;setStep(v);}
 function assignRole(newRole){
