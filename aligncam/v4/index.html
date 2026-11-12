@@ -188,6 +188,32 @@ function initCar(){for(let y=2027;y>=1990;y--)$('year').add(new Option(String(y)
 const specFields=['specPr','specVariant','specToe','specToeTol','specCamber','specCamberTol','specCaster','specRide','specVin','specSource'];
 function specSelectionKey(){return ['aligncamV44spec',$('make').value,$('model').value,$('year').value,axle].join(':');}
 function specKey(pr){return specSelectionKey()+':'+(pr||'DEFAULT').trim().toUpperCase();}
+function refreshSavedSpecProfiles(){
+ const select=$('savedSpecProfiles');if(!select)return;
+ const prefix=specSelectionKey()+':';
+ const stored=[];
+ try{
+  for(let i=0;i<localStorage.length;i++){
+   const key=localStorage.key(i);
+   if(!key?.startsWith(prefix))continue;
+   const pr=key.slice(prefix.length);
+   if(pr==='activePR'||!pr)continue;
+   stored.push(pr);
+  }
+ }catch(e){/* storage may be unavailable in private mode */}
+ stored.sort();
+ const active=$('specPr').value.trim().toUpperCase()||'';
+ select.innerHTML='<option value="">Choose saved PR profile</option>';
+ for(const pr of stored){const option=document.createElement('option');option.value=pr;option.textContent='PR '+pr;select.appendChild(option);}
+ if(stored.includes(active))select.value=active;
+}
+function newSpecProfile(){
+ for(const id of specFields)$(id).value='';
+ $('savedSpecProfiles').value='';
+ $('specDetails').open=true;
+ setText('specBadge','NEW PROFILE — enter a PR code and verified geometry values, then SAVE VEHICLE SPECS.');
+ $('specPr').focus();
+}
 function getSpecData(){const data={};for(const id of specFields)data[id]=$(id).value.trim();return data;}
 function applySpecData(data){for(const id of specFields)$(id).value=data?.[id]??'';setText('specBadge',data?('User-entered '+axle+' specifications · PR '+(data.specPr||'—')+' · total toe '+(data.specToe||'—')+'° ±'+(data.specToeTol||'—')+'° · camber '+(data.specCamber||'—')+'° ±'+(data.specCamberTol||'—')+'° · NOT CERTIFIED'):'Suspension data: NOT ENTERED — tap ENTER / EDIT below, select PR code and supply a source.');}
 function loadSpecData(fromUser=false){
@@ -199,6 +225,7 @@ function loadSpecData(fromUser=false){
   if(data&&typeof data!=='object')data=null;
   applySpecData(data);
   if(pr&&!data)$('specPr').value=pr;
+  refreshSavedSpecProfiles();
   if(fromUser)warn(data?'Saved vehicle specification loaded. Verify factory document.':'No saved specifications for this exact vehicle / PR / axle.');
   if(peerRole==='LEFT')send({type:'spec',data:data||getSpecData()});
  }catch(e){applySpecData(null);if(fromUser)warn('Failed to load specifications: '+e.message);}
@@ -214,8 +241,9 @@ function saveSpecData(){
   localStorage.setItem(specKey(data.specPr),JSON.stringify(stored));
   localStorage.setItem(specSelectionKey()+':activePR',data.specPr);
   applySpecData(stored);
+  refreshSavedSpecProfiles();
   send({type:'spec',data:stored});
-  $('specDetails').open=false;
+  $('specDetails').open=true;
   warn('Vehicle reference values saved on this phone. Do not assume factory verification.');
  }catch(e){warn('Cannot save vehicle specifications: '+e.message);}
 }
@@ -345,7 +373,18 @@ function paintPhoneLevel(name,data){
  state.textContent=!valid?'SENSOR UNAVAILABLE':green?'VERTICAL — ALIGNED':data.state;
  if(dot){dot.style.left=(valid?Math.max(10,Math.min(90,50+data.roll*2)):50)+'%';
          dot.style.top=(valid?Math.max(10,Math.min(90,50+data.lean*2)):50)+'%';}
- if(overlay){overlay.textContent=valid?('PHONE '+(green?'LEVEL':'TILTED')+' · '+data.verticalError.toFixed(1)+'° / '+data.roll.toFixed(1)+'°'):'PHONE LEVEL UNAVAILABLE';overlay.classList.toggle('good',green);}
+ if(overlay){
+  overlay.textContent=valid?
+    ((data.flatError<=1?'FLAT ':'VERTICAL ')+data.verticalError.toFixed(1)+'° · ROLL '+data.roll.toFixed(1)+'°'):
+    'PHONE SENSOR UNAVAILABLE';
+  overlay.classList.toggle('good',green);
+ }
+ const mini=field('CamLevel'),miniDot=field('CamLevelDot');
+ if(mini&&miniDot){
+  mini.classList.toggle('ok',green);
+  miniDot.style.left=(valid?Math.max(10,Math.min(90,50+data.roll*2)):50)+'%';
+  miniDot.style.top=(valid?Math.max(10,Math.min(90,50+data.lean*2)):50)+'%';
+ }
 }
 function refreshPhoneLevels(){
  const localName=peerRole==='RIGHT'?'right':'left';
@@ -536,13 +575,17 @@ function renderRemote(){if(!remoteVideo.videoWidth){remoteCtx.fillStyle='#091521
 function saveCurrent(){const car={make:$('make').value,model:$('model').value,year:$('year').value};const obj={version:'AlignCam V4.5',createdAt:new Date().toISOString(),car,axle,suspensionReference:getSpecData(),referenceStatus:'USER ENTERED — NOT FACTORY VERIFIED',zeros:{phone:phoneZero,localWheel:wheelTargetZero},measurements:currentReadings,quality:{local:lastOwn?.status,remote:lastOther?.status},disclaimer:'Relative orientation only. Not certified for vehicle alignment.'};let b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`aligncam_${car.make}_${car.model}_${obj.createdAt.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
 function manualRef(){if(!lastOwn?.fit?.valid||!lastOwn?.filterStable||step!==2){warn('Show the REF board and wait for STABLE tracking');return;}ownRef=lastOwn.fit.R;resetFilter();send({type:'ref',value:true});warn('REF captured. Do not move the phones.');}
 function zeroChange(){if(!lastOwn||!Number.isFinite(lastOwn.relativeYaw)){warn('No valid wheel angle to zero');return;}const d=lastOwn.relativeYaw;ownRef=ownRef;warn(`Change reference set: ${d.toFixed(2)}°. Tracking keeps absolute angles.`);}
-function init(){G=window.AlignGeometry;filters=window.AlignFilters?new window.AlignFilters.QualityPipeline():null;try{let c=JSON.parse(localStorage.getItem('aligncamV4intrinsic'));if(c?.fx&&c?.fy){ownCalibration=c;setText('calibStatus','Camera calibration: saved');}}catch(e){}initCar();loadSpecData();automaticMotionStart();cameraOn().catch(e=>warn('Camera permission: '+e.message));setStep(0);showOwn();showOther();summary();refreshPhoneLevels();setInterval(refreshPhoneLevels,550);ready=!!(window.Peer&&window.AR&&window.CV&&window.AlignGeometry);if(!window.AR||!window.CV||!window.AlignGeometry||!window.AlignFilters){setText('libStatus','Detector library failed');warn('Camera works, but tracking or filters failed to load. Reload while online.');}else{try{detector=new AR.Detector({dictionaryName:'ARUCO_4X4_1000',maxHammingDistance:1});ready=true;setText('libStatus','Tracker ready · 4×4/1000');}catch(e){ready=false;setText('libStatus','Tracker error');warn(e.message);}}
+function init(){G=window.AlignGeometry;filters=window.AlignFilters?new window.AlignFilters.QualityPipeline():null;try{let c=JSON.parse(localStorage.getItem('aligncamV4intrinsic'));if(c?.fx&&c?.fy){ownCalibration=c;setText('calibStatus','Camera calibration: saved');}}catch(e){}initCar();loadSpecData();automaticMotionStart();cameraOn().catch(e=>warn('Camera permission: '+e.message));setStep(0);showOwn();showOther();summary();refreshPhoneLevels();setInterval(refreshPhoneLevels,180);ready=!!(window.Peer&&window.AR&&window.CV&&window.AlignGeometry);if(!window.AR||!window.CV||!window.AlignGeometry||!window.AlignFilters){setText('libStatus','Detector library failed');warn('Camera works, but tracking or filters failed to load. Reload while online.');}else{try{detector=new AR.Detector({dictionaryName:'ARUCO_4X4_1000',maxHammingDistance:1});ready=true;setText('libStatus','Tracker ready · 4×4/1000');}catch(e){ready=false;setText('libStatus','Tracker error');warn(e.message);}}
  $('hostBtn').onclick=makeRoom;$('joinBtn').onclick=joinRoom;$('disconnectBtn').onclick=clearPair;$('flipBtn').onclick=()=>flipCamera().catch(e=>warn(e.message));$('sensorBtn').onclick=enableGravity;$('nextBtn').onclick=()=>setStep(step+1);$('restartBtn').onclick=()=>{resetFilter();ownRef=null;otherRef=false;autoRefDone=false;wheelTargetZero=null;phoneZero=null;setStep(0);refreshPhoneLevels()};
  $('captureRefBtn').onclick=armReferenceBoth;
  $('zeroBtn').onclick=setWheelTargetZeroBoth;
+ $('referenceQuickBtn').onclick=armReferenceBoth;
+ $('wheelQuickBtn').onclick=setWheelTargetZeroBoth;
  $('phoneZeroBtn').onclick=setPhoneZeroBoth;
  $('clearPhoneZeroBtn').onclick=clearPhoneZeroBoth;
  $('resetTargetZerosBtn').onclick=clearWheelTargetZeroBoth;
+ $('newSpecBtn').onclick=newSpecProfile;
+ $('savedSpecProfiles').onchange=()=>{const pr=$('savedSpecProfiles').value;if(!pr)return;$('specPr').value=pr;loadSpecData(true);$('specDetails').open=true;};
  $('saveSpecBtn').onclick=saveSpecData;
  $('loadSpecBtn').onclick=()=>loadSpecData(true);
  $('specPr').onchange=()=>setText('specBadge','Suspension PR code edited — select LOAD SAVED SPECS or SAVE VEHICLE SPECS.');
