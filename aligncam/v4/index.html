@@ -167,9 +167,82 @@ function assignRole(newRole){
  showOwn();showOther();summary();
 }
 function cameraStatus(state,text){setText(peerRole==='LEFT'?'leftQuality':'rightQuality',state);setText(peerRole==='LEFT'?'leftAlert':'rightAlert',text);}
-function sensorFlow(){const a=screen.orientation?.angle??(window.orientation||0);const ang=a*Math.PI/180,cs=Math.cos(ang),sn=Math.sin(ang);return {ang,cs,sn};}
-function onMotion(event){const g=event.accelerationIncludingGravity;if(!g||[g.x,g.y,g.z].some(n=>!Number.isFinite(n)))return;let mag=Math.hypot(g.x,g.y,g.z);if(mag<6||mag>14)return;const {cs,sn}=sensorFlow();let rx=g.x*cs+g.y*sn,ry=-g.x*sn+g.y*cs;let vv=[rx,-ry,-g.z].map(x=>x/mag);if(gravity)vv=vv.map((x,i)=>.2*x+.8*gravity[i]);let nv=Math.hypot(...vv)||1;gravity=vv.map(x=>x/nv);gravTime=Date.now();gravStatus='OK';setText('levelBadge','Gravity: ON');}
-async function enableGravity(){if(levelPermission)return;try{if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){let a=await DeviceMotionEvent.requestPermission();if(a!=='granted'){setText('levelBadge','Gravity: PERMISSION DENIED');return;}}window.addEventListener('devicemotion',onMotion);levelPermission=true;setText('levelBadge','Gravity: waiting for sensor…');}catch(e){setText('levelBadge','Gravity: unavailable');}}
+function sensorFlow(){
+ const angle=(screen.orientation?.angle??window.orientation??0)*Math.PI/180;
+ return {cs:Math.cos(angle),sn:Math.sin(angle)};
+}
+function setMotionState(state,source='NONE'){
+ gravStatus=state;sensorSource=source;
+ setText('levelBadge','Gravity: '+state+(source!=='NONE'?' ['+source+']':''));
+ const id=peerRole==='RIGHT'?'rightGyroState':'leftGyroState';
+ if($(id)){
+  $(id).textContent=state==='LIVE'?'SENSOR ON':state==='WAITING'?'SENSOR WAIT':'SENSOR OFF';
+  $(id).classList.toggle('active',state==='LIVE');
+ }
+}
+function acceptGravity(x,y,z,source){
+ const mag=Math.hypot(x,y,z);if(!Number.isFinite(mag)||mag<.8||mag>15)return;
+ const {cs,sn}=sensorFlow(),rx=x*cs+y*sn,ry=-x*sn+y*cs;
+ let vector=[rx,-ry,-z].map(v=>v/mag);
+ if(gravity)vector=vector.map((v,i)=>gravity[i]*.82+v*.18);
+ const size=Math.hypot(...vector);if(size<.01)return;
+ gravity=vector.map(v=>v/size);
+ gravTime=Date.now();
+ if(gravStatus!=='LIVE'||sensorSource!==source)setMotionState('LIVE',source);
+}
+function onMotion(event){
+ const g=event.accelerationIncludingGravity;
+ if(!g||![g.x,g.y,g.z].every(Number.isFinite))return;
+ const mag=Math.hypot(g.x,g.y,g.z);if(mag<6||mag>14)return;
+ lastMotionSample=Date.now();
+ acceptGravity(g.x,g.y,g.z,'ACCEL');
+}
+function onOrientation(event){
+ // Backup when accelerationIncludingGravity is not provided by this browser.
+ if(Date.now()-lastMotionSample<1600)return;
+ if(!Number.isFinite(event.beta)||!Number.isFinite(event.gamma))return;
+ const beta=event.beta*Math.PI/180,gamma=event.gamma*Math.PI/180;
+ const gx=Math.sin(gamma)*Math.cos(beta);
+ const gy=-Math.sin(beta);
+ const gz=-Math.cos(gamma)*Math.cos(beta);
+ acceptGravity(gx,gy,gz,'ORIENT');
+}
+function installGravityListeners(){
+ if(gyroListenerInstalled)return;
+ window.addEventListener('devicemotion',onMotion,{passive:true});
+ window.addEventListener('deviceorientation',onOrientation,{passive:true});
+ gyroListenerInstalled=true;levelPermission=true;
+ setMotionState('WAITING');
+}
+async function enableGravity(){
+ try{
+  // Both prompts must be started in the same user click (required by iOS).
+  const requests=[];
+  if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function')requests.push(DeviceMotionEvent.requestPermission());
+  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function')requests.push(DeviceOrientationEvent.requestPermission());
+  const results=await Promise.allSettled(requests);
+  if(results.length&&results.every(r=>r.status!=='fulfilled'||r.value!=='granted')){
+    setMotionState('DENIED');warn('Motion sensor permission denied. Check Motion & Orientation permissions for this site.');return;
+  }
+  installGravityListeners();
+  setMotionState('WAITING');
+  warn('Motion sensor listeners enabled. Move the phone slightly to test.');
+ }catch(e){setMotionState('ERROR');warn('Motion sensor: '+e.message);}
+}
+function automaticMotionStart(){
+ installGravityListeners();
+ if((typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function')||
+    (typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function')){
+  setMotionState('TAP ENABLE');
+ }
+ setInterval(()=>{
+  if(!gyroListenerInstalled)return;
+  if(Date.now()-gravTime>3500){
+   gravity=null;
+   if(gravStatus==='LIVE'||gravStatus==='WAITING')setMotionState('NO DATA');
+  }
+ },1200);
+}
 const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 function vertical(R){if(!R||!gravity||Date.now()-gravTime>2500)return {level:null,camber:null};const g=gravity,axisY=[R[0][1],R[1][1],R[2][1]],normal=[R[0][2],R[1][2],R[2][2]];let u=dot(axisY,g),v=dot(normal,g);return {level:Math.acos(clamp(Math.abs(u),-1,1))*180/Math.PI,camber:Math.asin(clamp(v,-1,1))*180/Math.PI};}
 function ownRole(){return peerRole;}
@@ -272,7 +345,7 @@ function renderRemote(){if(!remoteVideo.videoWidth){remoteCtx.fillStyle='#091521
 function saveCurrent(){const car={make:$('make').value,model:$('model').value,year:$('year').value};const obj={version:'AlignCam V4',createdAt:new Date().toISOString(),car,axle,measurements:currentReadings,quality:{local:lastOwn?.status,remote:lastOther?.status},disclaimer:'Relative orientation only. Not certified for vehicle alignment.'};let b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`aligncam_${car.make}_${car.model}_${obj.createdAt.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
 function manualRef(){if(!lastOwn?.fit?.valid||!lastOwn?.filterStable||step!==2){warn('Show the REF board and wait for STABLE tracking');return;}ownRef=lastOwn.fit.R;resetFilter();send({type:'ref',value:true});warn('REF captured. Do not move the phones.');}
 function zeroChange(){if(!lastOwn||!Number.isFinite(lastOwn.relativeYaw)){warn('No valid wheel angle to zero');return;}const d=lastOwn.relativeYaw;ownRef=ownRef;warn(`Change reference set: ${d.toFixed(2)}°. Tracking keeps absolute angles.`);}
-function init(){G=window.AlignGeometry;filters=window.AlignFilters?new window.AlignFilters.QualityPipeline():null;try{let c=JSON.parse(localStorage.getItem('aligncamV4intrinsic'));if(c?.fx&&c?.fy){ownCalibration=c;setText('calibStatus','Camera calibration: saved');}}catch(e){}initCar();cameraOn().catch(e=>warn('Camera permission: '+e.message));setStep(0);showOwn();showOther();summary();ready=!!(window.Peer&&window.AR&&window.CV&&window.AlignGeometry);if(!window.AR||!window.CV||!window.AlignGeometry||!window.AlignFilters){setText('libStatus','Detector library failed');warn('Camera works, but tracking or filters failed to load. Reload while online.');}else{try{detector=new AR.Detector({dictionaryName:'ARUCO_4X4_1000',maxHammingDistance:1});ready=true;setText('libStatus','Tracker ready · 4×4/1000');enableGravity();}catch(e){ready=false;setText('libStatus','Tracker error');warn(e.message);}}
+function init(){G=window.AlignGeometry;filters=window.AlignFilters?new window.AlignFilters.QualityPipeline():null;try{let c=JSON.parse(localStorage.getItem('aligncamV4intrinsic'));if(c?.fx&&c?.fy){ownCalibration=c;setText('calibStatus','Camera calibration: saved');}}catch(e){}initCar();cameraOn().catch(e=>warn('Camera permission: '+e.message));setStep(0);showOwn();showOther();summary();ready=!!(window.Peer&&window.AR&&window.CV&&window.AlignGeometry);if(!window.AR||!window.CV||!window.AlignGeometry||!window.AlignFilters){setText('libStatus','Detector library failed');warn('Camera works, but tracking or filters failed to load. Reload while online.');}else{try{detector=new AR.Detector({dictionaryName:'ARUCO_4X4_1000',maxHammingDistance:1});ready=true;setText('libStatus','Tracker ready · 4×4/1000');automaticMotionStart();}catch(e){ready=false;setText('libStatus','Tracker error');warn(e.message);}}
  $('hostBtn').onclick=makeRoom;$('joinBtn').onclick=joinRoom;$('disconnectBtn').onclick=clearPair;$('flipBtn').onclick=()=>flipCamera().catch(e=>warn(e.message));$('sensorBtn').onclick=enableGravity;$('nextBtn').onclick=()=>setStep(step+1);$('restartBtn').onclick=()=>{resetFilter();ownRef=null;otherRef=false;autoRefDone=false;setStep(0)};
  $('captureRefBtn').onclick=manualRef;$('zeroBtn').onclick=zeroChange;$('saveBtn').onclick=saveCurrent;
  $('make').onchange=()=>{setupCar();persistSettings();sendCar();};$('model').onchange=()=>{persistSettings();sendCar();};$('year').onchange=()=>{persistSettings();sendCar();};$('axle').onchange=()=>{resetFilter();axle=$('axle').value;setText('axleLabel',axle);setStep(axle==='FRONT'?3:4);sendCar();};
