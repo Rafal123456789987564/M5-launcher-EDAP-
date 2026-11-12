@@ -393,11 +393,48 @@ function refreshSensorChips(){
  if(a){a.textContent=localLive?'SENSOR ON':'SENSOR OFF';a.classList.toggle('active',localLive);}
  if(b){b.textContent=remoteLive?'SENSOR ON':'SENSOR OFF';b.classList.toggle('active',remoteLive);}
 }
-function showOwn(){refreshSensorChips();let c=peerRole==='LEFT'?'left':'right';const x=lastOwn;const frame=$(c+'Frame');frame.classList.toggle('good',x?.status==='GOOD'&&x?.filterStable);frame.classList.toggle('bad',['WRONG TARGET','LOW QUALITY','NOT UPRIGHT','UNSTABLE','LIGHT FLICKER'].includes(x?.status));frame.classList.toggle('warning',['STABILIZING','MOVING'].includes(x?.status));setBadge(c+'Quality',x?.status||'WAITING');setText(c+'Alert',x?.note||'Point this camera at the correct target');setText(c+'Toe',fnum(x?.relativeYaw));setText(c+'Camber',fnum(x?.camber));setText(c+'Level',x?.levelText||'UNAVAILABLE');setText(c+'Error',Number.isFinite(x?.fit?.error)?x.fit.error.toFixed(1)+' px':'—');$(c+'Camber').className=x?.camber==null?'warn':'';$(c+'Level').className=x?.status==='WRONG TARGET'?'bad':x?.level!=null&&x.level<=3?'good':x?.level!=null?'bad':'warn';}
-function showOther(){refreshSensorChips();let c=peerRole==='LEFT'?'right':'left';const x=lastOther;const frame=$(c+'Frame');frame.classList.toggle('good',x?.status==='GOOD'&&x?.filterStable);frame.classList.toggle('bad',['WRONG TARGET','LOW QUALITY','NOT UPRIGHT','UNSTABLE','LIGHT FLICKER'].includes(x?.status));frame.classList.toggle('warning',['STABILIZING','MOVING'].includes(x?.status));setBadge(c+'Quality',x?.status||'WAITING');setText(c+'Alert',x?.note||'Waiting for second phone');setText(c+'Toe',fnum(x?.relativeYaw));setText(c+'Camber',fnum(x?.camber));setText(c+'Level',x?.levelText||'UNAVAILABLE');setText(c+'Error',Number.isFinite(x?.error)?x.error.toFixed(1)+' px':'—');$(c+'Level').className=x?.level!=null&&x.level<=3?'good':x?.level!=null?'bad':'warn';}
-function summary(){const L=peerRole==='LEFT'?lastOwn:lastOther,R=peerRole==='RIGHT'?lastOwn:lastOther;setText('sumL',fnum(L?.relativeYaw));setText('sumR',fnum(R?.relativeYaw));const valid=L?.status==='GOOD'&&R?.status==='GOOD'&&L?.filterStable&&R?.filterStable&&L?.ref&&R?.ref&&Number.isFinite(L.relativeYaw)&&Number.isFinite(R.relativeYaw);setText('sumToe',valid?fnum(L.relativeYaw-R.relativeYaw):'—');setText('sumReady',valid?'STABLE':((L?.status==='UNSTABLE'||R?.status==='UNSTABLE'||L?.status==='LIGHT FLICKER'||R?.status==='LIGHT FLICKER')?'UNSTABLE':'WAITING')); $('sumReady').className=valid?'good':'warn';if(valid){currentReadings[axle].LEFT=L.relativeYaw;currentReadings[axle].RIGHT=R.relativeYaw;} }
+function showOwn(){refreshSensorChips();refreshPhoneLevels();let c=peerRole==='LEFT'?'left':'right';const x=lastOwn;const frame=$(c+'Frame');frame.classList.toggle('good',x?.status==='GOOD'&&x?.filterStable);frame.classList.toggle('bad',['WRONG TARGET','LOW QUALITY','NOT UPRIGHT','UNSTABLE','LIGHT FLICKER'].includes(x?.status));frame.classList.toggle('warning',['STABILIZING','MOVING'].includes(x?.status));setBadge(c+'Quality',x?.status||'WAITING');setText(c+'Alert',x?.note||'Point this camera at the correct target');setText(c+'Toe',fnum(displayedToe(x)));setText(c+'Camber',fnum(x?.camber));setText(c+'Level',x?.levelText||'UNAVAILABLE');setText(c+'Error',Number.isFinite(x?.fit?.error)?x.fit.error.toFixed(1)+' px':'—');$(c+'Camber').className=x?.camber==null?'warn':'';$(c+'Level').className=x?.status==='WRONG TARGET'?'bad':x?.level!=null&&x.level<=3?'good':x?.level!=null?'bad':'warn';}
+function showOther(){refreshSensorChips();refreshPhoneLevels();let c=peerRole==='LEFT'?'right':'left';const x=lastOther;const frame=$(c+'Frame');frame.classList.toggle('good',x?.status==='GOOD'&&x?.filterStable);frame.classList.toggle('bad',['WRONG TARGET','LOW QUALITY','NOT UPRIGHT','UNSTABLE','LIGHT FLICKER'].includes(x?.status));frame.classList.toggle('warning',['STABILIZING','MOVING'].includes(x?.status));setBadge(c+'Quality',x?.status||'WAITING');setText(c+'Alert',x?.note||'Waiting for second phone');setText(c+'Toe',fnum(displayedToe(x)));setText(c+'Camber',fnum(x?.camber));setText(c+'Level',x?.levelText||'UNAVAILABLE');setText(c+'Error',Number.isFinite(x?.error)?x.error.toFixed(1)+' px':'—');$(c+'Level').className=x?.level!=null&&x.level<=3?'good':x?.level!=null?'bad':'warn';}
+function summary(){
+ const L=peerRole==='LEFT'?lastOwn:lastOther,R=peerRole==='RIGHT'?lastOwn:lastOther;
+ const l=displayedToe(L),r=displayedToe(R);
+ setText('sumL',fnum(l));setText('sumR',fnum(r));
+ const valid=L?.status==='GOOD'&&R?.status==='GOOD'&&L?.filterStable&&R?.filterStable&&L?.ref&&R?.ref&&Number.isFinite(l)&&Number.isFinite(r);
+ setText('sumToe',valid?fnum(l-r):'—');
+ setText('sumReady',valid?'STABLE':(['UNSTABLE','LIGHT FLICKER'].includes(L?.status)||['UNSTABLE','LIGHT FLICKER'].includes(R?.status)?'UNSTABLE':'WAITING'));
+ $('sumReady').className=valid?'good':'warn';
+ if(valid){currentReadings[axle].LEFT=l;currentReadings[axle].RIGHT=r;}
+}
 function send(o){try{if(dataConn?.open)dataConn.send(o);}catch(e){}}
-function receive(d){if(!d||typeof d!=='object')return;if(d.type==='measure'){lastOther=d.data;showOther();summary();return;}if(d.type==='step'){if(peerRole!=='LEFT'){syncedStep(d.step);}return;}if(d.type==='ref'){otherRef=!!d.value;setText('referenceStatus',`Shared reference: local ${ownRef?'OK':'MISSING'}, remote ${otherRef?'OK':'MISSING'}`);return;}if(d.type==='car'){if(peerRole!=='LEFT'){ $('make').value=d.make;setupCar();$('model').value=d.model;$('year').value=d.year;$('axle').value=d.axle;axle=d.axle;setText('axleLabel',axle);}} }
+function receive(d){
+ if(!d||typeof d!=='object')return;
+ if(d.type==='measure'){
+  lastOther=d.data;lastRemoteSensorTime=Date.now();showOther();summary();return;
+ }
+ if(d.type==='step'){if(peerRole!=='LEFT')syncedStep(d.step);return;}
+ if(d.type==='ref'){
+  otherRef=!!d.value;setText('referenceStatus',`Shared reference: local ${ownRef?'OK':'MISSING'}, remote ${otherRef?'OK':'MISSING'}`);return;
+ }
+ if(d.type==='refArmCmd'){armReferenceLocal();return;}
+ if(d.type==='phoneZeroCmd'){
+  if(d.action==='set')setPhoneZeroLocal();else clearPhoneZeroLocal();
+  return;
+ }
+ if(d.type==='wheelZeroCmd'){
+  if(d.action==='set')setWheelTargetZeroLocal();
+  else{wheelTargetZero=null;warn('Wheel target zero cleared.');}
+  return;
+ }
+ if(d.type==='spec'){
+  if(peerRole!=='LEFT'&&d.data)applySpecData(d.data);
+  return;
+ }
+ if(d.type==='car'&&peerRole!=='LEFT'){
+  $('make').value=d.make;setupCar();$('model').value=d.model;$('year').value=d.year;
+  $('axle').value=d.axle;axle=d.axle;setText('axleLabel',axle);
+  loadSpecData();return;
+ }
+}
 function bindConn(conn){if(dataConn&&dataConn!==conn){try{dataConn.close()}catch(e){}}dataConn=conn;conn.on('open',()=>{setStatus('Paired / data connected',true);send({type:'ref',value:!!ownRef});if(lastOwn)send({type:'measure',data:payload(lastOwn)});if(peerRole==='LEFT')send({type:'step',step,axle});});conn.on('data',receive);conn.on('close',()=>{setStatus('Connection lost',false);lastOther=null;showOther();summary();});conn.on('error',e=>setStatus('Data error: '+e.message,false));}
 function bindCall(c){call=c;c.on('stream',stream=>{remoteVideo.srcObject=stream;remoteVideo.play().catch(()=>{});setStatus('Live video + data paired',true);});c.on('close',()=>{remoteVideo.srcObject=null;});c.on('error',e=>setStatus('Video error: '+e.message,false));}
 function clearPair(){if(call)try{call.close()}catch(e){}if(dataConn)try{dataConn.close()}catch(e){}if(peer)try{peer.destroy()}catch(e){}peer=null;call=null;dataConn=null;lastOther=null;remoteVideo.srcObject=null;setStatus('Not connected',false);showOther();summary();}
@@ -423,7 +460,7 @@ function calcMeasure(markers){const all=markers.map(m=>({id:m.id,corners:m.corne
  if(Number.isFinite(v.level)&&v.level>3){out.status='NOT UPRIGHT';out.note=`TARGET TILTED ${v.level.toFixed(1)}°. CHECK TARGET MOUNTING; DO NOT FORCE WHEEL CAMBER TO ZERO.`;}
  // Reference capture is gated later, after multi-stage stability filtering.
  if(out.status!=='GOOD'&&out.status!=='FAIR')out.note='Tracking not reliable';return out;}
-function payload(r){let {status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,fit,ids,filterState,filterScatter,filterStable,filterMoving}=r;return {sensorActive:!!gravity&&Date.now()-gravTime<2500,sensorSource,status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,filterState,filterScatter,filterStable,filterMoving,error:fit?.error??null,inliers:fit?.inliers??0,ids:ids||[],markers:(r.markers||[]).map(m=>({id:m.id,corners:m.corners.map(p=>({x:p.x,y:p.y}))}))};}
+function payload(r){let {status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,fit,ids,filterState,filterScatter,filterStable,filterMoving}=r;return {phoneLevel:currentPhoneLevel(),targetZero:wheelTargetZero,sensorActive:!!gravity&&Date.now()-gravTime<2500,sensorSource,status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,filterState,filterScatter,filterStable,filterMoving,error:fit?.error??null,inliers:fit?.inliers??0,ids:ids||[],markers:(r.markers||[]).map(m=>({id:m.id,corners:m.corners.map(p=>({x:p.x,y:p.y}))}))};}
 function sampleLuminance(img){
   // 64 fixed samples, avoiding expensive whole-frame image processing.
   const {data,width:w,height:h}=img;let values=[];
@@ -483,7 +520,7 @@ function analyzeFrame(){
 }
 function renderRemote(){if(!remoteVideo.videoWidth){remoteCtx.fillStyle='#091521';remoteCtx.fillRect(0,0,remoteCanvas.width,remoteCanvas.height);remoteCtx.fillStyle='#8daac5';remoteCtx.font='18px system-ui';remoteCtx.fillText('Waiting for the second camera',20,Math.round(remoteCanvas.height/2));return;}
  configureCanvas(remoteVideo,remoteCanvas,800);remoteCtx.drawImage(remoteVideo,0,0,remoteCanvas.width,remoteCanvas.height);let marks=lastOther?.markers||[];let kind=peerRole==='LEFT'?'RIGHT':'LEFT';const sx=remoteCanvas.width/(lastOther?.frameWidth||640),sy=remoteCanvas.height/(lastOther?.frameHeight||480);let scaled=marks.map(m=>({id:m.id,corners:m.corners?.map(p=>({x:p.x*sx,y:p.y*sy}))||[]}));drawOutline(remoteCtx,scaled,expectedBoard()==='REF'?'REF':kind,remoteCanvas.width,remoteCanvas.height);if(['WRONG TARGET','UNSTABLE','LIGHT FLICKER'].includes(lastOther?.status)){remoteCtx.fillStyle='rgba(190,22,47,0.25)';remoteCtx.fillRect(0,0,remoteCanvas.width,remoteCanvas.height);}}
-function saveCurrent(){const car={make:$('make').value,model:$('model').value,year:$('year').value};const obj={version:'AlignCam V4',createdAt:new Date().toISOString(),car,axle,measurements:currentReadings,quality:{local:lastOwn?.status,remote:lastOther?.status},disclaimer:'Relative orientation only. Not certified for vehicle alignment.'};let b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`aligncam_${car.make}_${car.model}_${obj.createdAt.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
+function saveCurrent(){const car={make:$('make').value,model:$('model').value,year:$('year').value};const obj={version:'AlignCam V4.4',createdAt:new Date().toISOString(),car,axle,suspensionReference:getSpecData(),referenceStatus:'USER ENTERED — NOT FACTORY VERIFIED',zeros:{phone:phoneZero,localWheel:wheelTargetZero},measurements:currentReadings,quality:{local:lastOwn?.status,remote:lastOther?.status},disclaimer:'Relative orientation only. Not certified for vehicle alignment.'};let b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`aligncam_${car.make}_${car.model}_${obj.createdAt.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
 function manualRef(){if(!lastOwn?.fit?.valid||!lastOwn?.filterStable||step!==2){warn('Show the REF board and wait for STABLE tracking');return;}ownRef=lastOwn.fit.R;resetFilter();send({type:'ref',value:true});warn('REF captured. Do not move the phones.');}
 function zeroChange(){if(!lastOwn||!Number.isFinite(lastOwn.relativeYaw)){warn('No valid wheel angle to zero');return;}const d=lastOwn.relativeYaw;ownRef=ownRef;warn(`Change reference set: ${d.toFixed(2)}°. Tracking keeps absolute angles.`);}
 function init(){G=window.AlignGeometry;filters=window.AlignFilters?new window.AlignFilters.QualityPipeline():null;try{let c=JSON.parse(localStorage.getItem('aligncamV4intrinsic'));if(c?.fx&&c?.fy){ownCalibration=c;setText('calibStatus','Camera calibration: saved');}}catch(e){}initCar();cameraOn().catch(e=>warn('Camera permission: '+e.message));setStep(0);showOwn();showOther();summary();ready=!!(window.Peer&&window.AR&&window.CV&&window.AlignGeometry);if(!window.AR||!window.CV||!window.AlignGeometry||!window.AlignFilters){setText('libStatus','Detector library failed');warn('Camera works, but tracking or filters failed to load. Reload while online.');}else{try{detector=new AR.Detector({dictionaryName:'ARUCO_4X4_1000',maxHammingDistance:1});ready=true;setText('libStatus','Tracker ready · 4×4/1000');automaticMotionStart();}catch(e){ready=false;setText('libStatus','Tracker error');warn(e.message);}}
@@ -491,7 +528,7 @@ function init(){G=window.AlignGeometry;filters=window.AlignFilters?new window.Al
  $('captureRefBtn').onclick=manualRef;$('zeroBtn').onclick=zeroChange;$('saveBtn').onclick=saveCurrent;
  $('make').onchange=()=>{setupCar();persistSettings();sendCar();};$('model').onchange=()=>{persistSettings();sendCar();};$('year').onchange=()=>{persistSettings();sendCar();};$('axle').onchange=()=>{resetFilter();axle=$('axle').value;setText('axleLabel',axle);setStep(axle==='FRONT'?3:4);sendCar();};
 }
-function sendCar(){send({type:'car',make:$('make').value,model:$('model').value,year:$('year').value,axle});}
+function sendCar(){send({type:'car',make:$('make').value,model:$('model').value,year:$('year').value,axle});if(peerRole==='LEFT')send({type:'spec',data:getSpecData()});}
 window.addEventListener('load',init);
 window.addEventListener('visibilitychange',()=>{if(!document.hidden){localVideo.play().catch(()=>{});remoteVideo.play().catch(()=>{});}});
 </script>
