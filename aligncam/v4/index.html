@@ -197,7 +197,7 @@ const remoteCanvas=$('rightCanvas'),remoteCtx=remoteCanvas.getContext('2d');
 const rawCanvas=document.createElement('canvas');const rawCtx=rawCanvas.getContext('2d',{willReadFrequently:true});
 let detector=null,ready=false,cameraFacing='environment',frameTimer=null,renderTimer=null,videoFrameW=0,videoFrameH=0;
 let opticsTrack=null,opticsCaps=null,zoomNow=1,zoomLow=1,zoomHigh=1,autoOpticalZoom=true,nextAutoZoom=0;
-let lastDetectionTime=0,lowDetectionFrames=0,lastRecoverTime=0,lastAnalyzeTime=0;
+let lastDetectionTime=0,lowDetectionFrames=0,lastRecoverTime=0,lastAnalyzeTime=0,trackingFrame=0;
 function selectTargetMode(profile,remote=false){
  if(!['LONG','OLD','CLASSIC'].includes(profile))return;
  window.ALIGN_PROFILE=profile;
@@ -245,6 +245,7 @@ async function initCameraOptics(){
  nextAutoZoom=Date.now()+4000;lowDetectionFrames=0;
 }
 function maybeAutoOpticalZoom(visible){
+ if(ownRef||step>=2)return;
  if(visible>=2){lowDetectionFrames=0;return;}
  lowDetectionFrames++;
  if(!autoOpticalZoom||zoomHigh<=1.05||lowDetectionFrames<10||Date.now()<nextAutoZoom)return;
@@ -683,13 +684,35 @@ function blockedFrame(raw,status,note){
 }
 function analyzeFrame(){
  if(!localStream||!localVideo.videoWidth)return;
- configureCanvas(localVideo,ownCanvas,1600);
+ configureCanvas(localVideo,ownCanvas,1280);
  if(rawCanvas.width!==ownCanvas.width||rawCanvas.height!==ownCanvas.height){rawCanvas.width=ownCanvas.width;rawCanvas.height=ownCanvas.height;resetFilter();}
  rawCtx.drawImage(localVideo,0,0,rawCanvas.width,rawCanvas.height);
  if(!ready){ownCtx.drawImage(rawCanvas,0,0);return;}
  const img=rawCtx.getImageData(0,0,rawCanvas.width,rawCanvas.height),now=Date.now()/1000;
  const flicker=checkFlicker(sampleLuminance(img),now);
- let marks=[];try{marks=detectWithFallback(img);maybeAutoOpticalZoom(marks.filter(m=>G.boardType(m.id)===expectedBoard()).length);}catch(e){warn('Tracking error: '+e.message);lastOwn=blockedFrame(lastOwn||{},'UNSTABLE','DETECTOR ERROR — CHECK LIGHTING');showOwn();summary();return;}
+ let marks=[];
+ try{
+  // Short-term tracking: search a padded region around a previously fitted target.
+  // Periodic full-frame acquisition prevents locking to a stale region.
+  const prior=lastOwn?.fit?.valid?lastOwn.fit.bbox:null;
+  trackingFrame++;
+  let roiOk=false;
+  if(prior&&trackingFrame%9!==0){
+   const bw=prior.x1-prior.x0,bh=prior.y1-prior.y0;
+   const padx=Math.max(85,bw*.65),pady=Math.max(85,bh*.85);
+   const x0=Math.max(0,Math.floor(prior.x0-padx)),y0=Math.max(0,Math.floor(prior.y0-pady));
+   const x1=Math.min(rawCanvas.width,Math.ceil(prior.x1+padx)),y1=Math.min(rawCanvas.height,Math.ceil(prior.y1+pady));
+   const rw=x1-x0,rh=y1-y0;
+   if(rw>=65&&rh>=65&&rw*rh<rawCanvas.width*rawCanvas.height*.78){
+    const roi=rawCtx.getImageData(x0,y0,rw,rh);
+    const cropped=detector.detect(roi)||[];
+    for(const m of cropped)for(const corner of m.corners){corner.x+=x0;corner.y+=y0;}
+    if(cropped.filter(m=>G.boardType(m.id)===expectedBoard()).length>=(window.ALIGN_PROFILE==='CLASSIC'?1:2)){marks=cropped;roiOk=true;}
+   }
+  }
+  if(!roiOk)marks=detectWithFallback(img);
+  maybeAutoOpticalZoom(marks.filter(m=>G.boardType(m.id)===expectedBoard()).length);
+ }catch(e){warn('Tracking error: '+e.message);lastOwn=blockedFrame(lastOwn||{},'UNSTABLE','DETECTOR ERROR — CHECK LIGHTING');showOwn();summary();return;}
  const raw=calcMeasure(marks);
  let filtered=(filters||window.AlignFilters&& (filters=new window.AlignFilters.QualityPipeline()))?.process(raw,now)||raw;
  if(flicker && filtered.status!=='WRONG TARGET'){
