@@ -39,9 +39,24 @@
 (function(root){
 'use strict';
 const WMM=274.8, HMM=198, TAG=51.6, GX=22.8, GY=21.6, DEGREES=180/Math.PI;
+const LONG_LAYOUT=[[12.5,40,130],[154.5,40,130],[14,6,26],[257,6,26],[14,179,26],[257,179,26]];
+function targetMode(){return (typeof window!=='undefined'&&window.ALIGN_PROFILE)||'LONG';}
 const BOARDS={LEFT:{base:0,label:'LEFT'},RIGHT:{base:20,label:'RIGHT'},REF:{base:40,label:'REF'}};
-function boardType(id){if(id>=0&&id<12)return 'LEFT';if(id>=20&&id<32)return 'RIGHT';if(id>=40&&id<52)return 'REF';return null;}
-function modelCorners(id){const kind=boardType(id);if(!kind)return null;let i=id-BOARDS[kind].base,col=i%4,row=Math.floor(i/4);let x=-WMM/2+col*(TAG+GX),y=-HMM/2+row*(TAG+GY);return [[x,y],[x+TAG,y],[x+TAG,y+TAG],[x,y+TAG]].map(v=>({x:v[0]/100,y:v[1]/100}));}
+function boardType(id){
+ const mode=targetMode();
+ if(mode==='CLASSIC')return id===0?'LEFT':id===1?'RIGHT':id===2?'REF':null;
+ const limit=mode==='LONG'?6:12;
+ if(id>=0&&id<limit)return 'LEFT';if(id>=20&&id<20+limit)return 'RIGHT';if(id>=40&&id<40+limit)return 'REF';return null;
+}
+function modelCorners(id){
+ const kind=boardType(id);if(!kind)return null;
+ const mode=targetMode();
+ let x,y,size;
+ if(mode==='CLASSIC'){x=-90;y=-90;size=180;}
+ else if(mode==='LONG'){const entry=LONG_LAYOUT[id-BOARDS[kind].base];if(!entry)return null;[x,y,size]=entry;}
+ else{let i=id-BOARDS[kind].base,col=i%4,row=Math.floor(i/4);size=TAG;x=-WMM/2+col*(TAG+GX);y=-HMM/2+row*(TAG+GY);}
+ return [[x,y],[x+size,y],[x+size,y+size],[x,y+size]].map(p=>({x:p[0]/100,y:p[1]/100}));
+}
 function samplePoints(markers,kind){let pts=[];for(const m of markers){if(boardType(m.id)!==kind||!Array.isArray(m.corners)||m.corners.length!==4)continue;const o=modelCorners(m.id);for(let i=0;i<4;i++){pts.push({X:o[i].x,Y:o[i].y,x:m.corners[i].x,y:m.corners[i].y,id:m.id});}}return pts;}
 function solveLinear(A,b){let n=b.length,M=A.map((r,i)=>r.slice().concat([b[i]]));for(let k=0;k<n;k++){let p=k;for(let i=k+1;i<n;i++)if(Math.abs(M[i][k])>Math.abs(M[p][k]))p=i;if(Math.abs(M[p][k])<1e-11)return null;[M[k],M[p]]=[M[p],M[k]];let t=M[k][k];for(let j=k;j<=n;j++)M[k][j]/=t;for(let i=0;i<n;i++)if(i!==k){let f=M[i][k];for(let j=k;j<=n;j++)M[i][j]-=f*M[k][j];}}return M.map(r=>r[n]);}
 function homography(points){if(points.length<8)return null;let M=Array.from({length:8},()=>Array(8).fill(0)),B=Array(8).fill(0);for(const p of points){let a=[p.X,p.Y,1,0,0,0,-p.x*p.X,-p.x*p.Y],b=[0,0,0,p.X,p.Y,1,-p.y*p.X,-p.y*p.Y];for(const [r,z] of [[a,p.x],[b,p.y]])for(let i=0;i<8;i++){B[i]+=r[i]*z;for(let j=0;j<8;j++)M[i][j]+=r[i]*r[j];}}let h=solveLinear(M,B);return h?[[h[0],h[1],h[2]],[h[3],h[4],h[5]],[h[6],h[7],1]]:null;}
@@ -54,52 +69,51 @@ function markerMeanResidual(H,m){
   if(!Number.isFinite(v))return Infinity;sum+=v;
  }return sum/4;
 }
+function markerSide(m){let v=0;for(let i=0;i<4;i++){const p=m.corners[i],q=m.corners[(i+1)%4];v+=Math.hypot(p.x-q.x,p.y-q.y);}return v/4;}
 function fitBoard(markers,kind,w,h,cam){
- const candidates=markers.filter(m=>boardType(m.id)===kind&&m.corners?.length===4);
- if(candidates.length<4)return null;
- const hypotheses=[];
- let H=homography(samplePoints(candidates,kind));if(H)hypotheses.push(H);
- // When all decoded markers are mutually consistent, skip expensive subset search.
- const quick=!!H&&candidates.length>=5&&candidates.every(m=>markerMeanResidual(H,m)<2.7);
- if(!quick){for(let i=0;i<candidates.length;i++){
-  H=homography(samplePoints(candidates.filter((_,j)=>i!==j),kind));
-  if(H)hypotheses.push(H);
+ const candidates=markers.filter(m=>boardType(m.id)===kind&&m.corners?.length===4&&markerSide(m)>=12);
+ if(!candidates.length)return null;
+ const mode=targetMode(),minWanted=mode==='CLASSIC'?1:2;
+ const largestSide=Math.max(...candidates.map(markerSide));
+ const hypot=[];
+ let H=homography(samplePoints(candidates,kind));if(H)hypot.push(H);
+ if(candidates.length>=3){
+  for(let i=0;i<candidates.length;i++){
+   H=homography(samplePoints(candidates.filter((_,j)=>j!==i),kind));if(H)hypot.push(H);
+  }
  }
- for(let i=0;i<candidates.length-3&&hypotheses.length<100;i++)
-  for(let j=i+1;j<candidates.length-2&&hypotheses.length<100;j++)
-   for(let k=j+1;k<candidates.length-1&&hypotheses.length<100;k++)
-    for(let l=k+1;l<candidates.length&&hypotheses.length<100;l++){
-     const four=[candidates[i],candidates[j],candidates[k],candidates[l]];
-     let coords=four.map(m=>modelCorners(m.id)[0]);
-     if(Math.max(...coords.map(p=>p.x))-Math.min(...coords.map(p=>p.x))<.4||
-        Math.max(...coords.map(p=>p.y))-Math.min(...coords.map(p=>p.y))<.4)continue;
-     H=homography(samplePoints(four,kind));if(H)hypotheses.push(H);
-    }
+ if(candidates.length>=3)for(let i=0;i<candidates.length-1;i++)for(let j=i+1;j<candidates.length;j++){
+  if(hypot.length>=40)break;
+  H=homography(samplePoints([candidates[i],candidates[j]],kind));if(H)hypot.push(H);
  }
  let best=null;
- for(const candidate of hypotheses){
-  const errors=candidates.map(m=>markerMeanResidual(candidate,m));
-  const selected=[];let sum=0;
-  errors.forEach((e,i)=>{if(e<3.2){selected.push(candidates[i]);sum+=e;}});
-  if(selected.length<4)continue;
-  const score=selected.length*100-sum/selected.length;
-  if(!best||score>best.score)best={score,selected,H:candidate};
+ for(const model of hypot){
+  const chosen=[];let total=0;
+  for(const m of candidates){const e=markerMeanResidual(model,m),gate=Math.max(3.2,markerSide(m)*.035);
+   if(e<gate){chosen.push(m);total+=e;}
+  }
+  if(chosen.length<minWanted)continue;
+  const score=chosen.length*100-total/chosen.length;
+  if(!best||score>best.score)best={score,chosen,H:model};
  }
  if(!best)return null;
- let selected=best.selected;
- H=homography(samplePoints(selected,kind))||best.H;
- selected=selected.filter(m=>markerMeanResidual(H,m)<3.5);
- if(selected.length<4)return null;
- H=homography(samplePoints(selected,kind))||H;
- const good=samplePoints(selected,kind).filter(p=>residual(H,p)<4.5);
- const ids=new Set(good.map(p=>p.id));if(ids.size<4)return null;
- const err=Math.sqrt(good.reduce((n,p)=>n+residual(H,p)**2,0)/good.length);
- const q=rotation(H,w,h,cam);
- const xs=good.map(p=>p.x),ys=good.map(p=>p.y);
- const bbox={x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};
- const valid=ids.size>=5&&err<=2.7&&bbox.x1-bbox.x0>=w*.20&&bbox.y1-bbox.y0>=h*.18&&Number.isFinite(q.yaw)&&Number.isFinite(q.pitch);
- return{H,R:q.R,yaw:q.yaw,pitch:q.pitch,inliers:ids.size,error:err,points:good,bbox,valid};
+ let keep=best.chosen;
+ H=homography(samplePoints(keep,kind))||best.H;
+ if(keep.length>minWanted){
+  keep=keep.filter(m=>markerMeanResidual(H,m)<Math.max(3.8,markerSide(m)*.04));
+ }
+ if(keep.length<minWanted)return null;
+ H=homography(samplePoints(keep,kind))||H;
+ const good=samplePoints(keep,kind);
+ const errors=good.map(p=>residual(H,p));
+ const error=Math.sqrt(errors.reduce((t,v)=>t+v*v,0)/errors.length);
+ const pose=rotation(H,w,h,cam),xx=good.map(p=>p.x),yy=good.map(p=>p.y);
+ const bbox={x0:Math.min(...xx),x1:Math.max(...xx),y0:Math.min(...yy),y1:Math.max(...yy)};
+ const inliers=new Set(keep.map(m=>m.id)).size;
+ const valid=inliers>=minWanted&&error<3.8&&largestSide>=(mode==='CLASSIC'?50:24)&&bbox.x1-bbox.x0>=24&&bbox.y1-bbox.y0>=18&&Number.isFinite(pose.yaw)&&Number.isFinite(pose.pitch);
+ return {H,R:pose.R,yaw:pose.yaw,pitch:pose.pitch,inliers,error,points:good,bbox,valid,largestSide,mode};
 }
+
 function cross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
 function dot(a,b){return a.reduce((s,v,i)=>s+v*b[i],0);}
 function norm(v){const k=Math.hypot(...v)||1;return v.map(x=>x/k);}
