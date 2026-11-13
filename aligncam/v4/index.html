@@ -379,8 +379,8 @@ function runoutClearBoth(){runoutClearLocal('CLEARED');send({type:'runoutCmd',ac
 function workReadings(){
  const L=peerRole==='LEFT'?lastOwn:lastOther,R=peerRole==='RIGHT'?lastOwn:lastOther;
  const l=displayedToe(L),r=displayedToe(R),delta=(Number.isFinite(l)&&Number.isFinite(r))?l-r:null;
- const trustworthy=!!(L?.filterStable&&R?.filterStable&&L?.ref&&R?.ref&&L.status==='GOOD'&&R.status==='GOOD');
- return {l,r,delta,ready:trustworthy,runout:!!(L?.runoutValid&&R?.runoutValid)};
+ const trustworthy=!!(L?.filterStable&&R?.filterStable&&L?.ref&&R?.ref&&L.status==='GOOD'&&R.status==='GOOD'&&!L?.mountWarning&&!R?.mountWarning);
+ return {l,r,delta,ready:trustworthy,runout:!!(runoutSolution?.ok&&lastOwn?.runoutCorrected&&lastOther?.runoutValid)};
 }
 function refreshWorkshop(){
  const d=workReadings();
@@ -699,7 +699,7 @@ function summary(){
  const mountFault=!!L?.mountWarning||!!R?.mountWarning;
  const valid=!mountFault&&L?.status==='GOOD'&&R?.status==='GOOD'&&L?.filterStable&&R?.filterStable&&L?.ref&&R?.ref&&Number.isFinite(l)&&Number.isFinite(r);
  setText('sumToe',valid?fnum(l-r):'—');
- setText('sumReady',valid?'STABLE':mountFault?'CHECK MOUNT':(['UNSTABLE','LIGHT FLICKER'].includes(L?.status)||['UNSTABLE','LIGHT FLICKER'].includes(R?.status)?'UNSTABLE':(L?.status==='FAIR'||R?.status==='FAIR')?'COARSE — OPTICAL ZOOM':'WAITING'));
+ setText('sumReady',valid?(runoutSolution?.ok&&lastOther?.runoutValid?'RELATIVE + RUNOUT':'TRACKING ONLY'):mountFault?'CHECK MOUNT':(['UNSTABLE','LIGHT FLICKER'].includes(L?.status)||['UNSTABLE','LIGHT FLICKER'].includes(R?.status)?'UNSTABLE':(L?.status==='FAIR'||R?.status==='FAIR')?'COARSE — OPTICAL ZOOM':'WAITING'));
  $('sumReady').className=valid?'good':'warn';
  if(valid){currentReadings[axle].LEFT=l;currentReadings[axle].RIGHT=r;}
  refreshWorkshop();refreshRunoutPanel();
