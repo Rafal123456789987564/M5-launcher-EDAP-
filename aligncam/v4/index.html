@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1120">
-<title>ALIGNCAM V4.5 | Live Bubble Levels and Vehicle Specs</title>
+<title>ALIGNCAM V4.6 | Reliable Target Tracking</title>
 <style>
 :root{color-scheme:dark;--bg:#0a111c;--panel:#131f2e;--edge:#2b435a;--blue:#5bbcff;--mint:#59e7b0;--red:#ff687a;--amber:#f3b85b;--ink:#f1f7ff;--muted:#9fb5cb}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif}button,select,input{font:inherit;color:inherit}button,select,input{border-radius:9px;border:1px solid #42617d;background:#1b344b;padding:9px 12px}button{cursor:pointer;font-weight:700;touch-action:manipulation}button.primary{background:#137aa2}button.success{background:#126a5f}button.warn{background:#705626}button:disabled{opacity:.45}select{min-height:39px;max-width:100%}input{min-width:0}a{color:#a7dcff}.wrap{max-width:1380px;margin:auto;padding:10px}.header,.hgroup,.flex,.controls,.chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.header{justify-content:space-between;margin:0 0 9px}.brand{font-weight:900;font-size:24px;letter-spacing:.3px}.brand span{color:var(--blue)}.tiny,.hint{font-size:12px;color:var(--muted)}.pill{border-radius:16px;background:#183146;border:1px solid #315a76;padding:5px 10px;font-size:12px}.panel{border:1px solid var(--edge);background:var(--panel);padding:11px;border-radius:13px;margin:0 0 10px}.sectionhead{font-size:12px;color:#99b5d1;text-transform:uppercase;letter-spacing:1.1px;font-weight:900;margin-bottom:8px}.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.camera-panel{border:1px solid var(--edge);background:#111e2c;border-radius:12px;min-width:0;overflow:hidden}.camera-title{padding:9px 11px 5px;font-weight:800;display:flex;gap:8px;justify-content:space-between;align-items:center}.frame{position:relative;width:100%;aspect-ratio:4/3;background:#080d16;overflow:hidden;border:3px solid #38546d;transition:border-color .18s}.frame.good{border-color:var(--mint)}.frame.warning{border-color:var(--amber)}.frame.bad{border-color:var(--red);box-shadow:inset 0 0 0 2px var(--red)}.frame img,.frame canvas,.frame video{display:block;width:100%;height:100%;object-fit:contain}.frame video{position:absolute;inset:0;visibility:hidden}.frame canvas{position:relative}.frame .stamp{position:absolute;z-index:5;left:8px;top:8px;background:#071324ce;font-size:12px;font-weight:800;padding:5px 8px;border:1px solid #44627b;border-radius:7px}.frame .alert{position:absolute;z-index:6;left:7px;right:7px;bottom:8px;background:#081525e8;border-radius:8px;padding:7px 9px;font-size:12px;line-height:1.35;max-height:34%;overflow:auto}.frame.bad .alert{background:#aa1c31e9;color:white;font-weight:900}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:7px}.metric{min-width:0;border-radius:8px;padding:7px;background:#0b1928;border:1px solid #30445d}.metric label{display:block;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.35px;text-transform:uppercase}.metric output{display:block;font-variant-numeric:tabular-nums;font-weight:900;font-size:clamp(14px,2.6vw,24px);white-space:nowrap}.metric .dim{color:var(--muted)}.metric output.good{color:var(--mint)}.metric output.bad{color:var(--red)}.metric output.warn{color:var(--amber)}.master{display:grid;grid-template-columns:1.5fr 1fr;gap:10px}.status-dot{width:9px;height:9px;background:var(--red);border-radius:50%;display:inline-block;margin-right:6px}.status-dot.on{background:var(--mint)}.steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}.step{background:#11273a;border:1px solid #36536b;padding:7px;text-align:center;border-radius:9px;font-size:11px;font-weight:800}.step.active{background:#14516d;border-color:#5dc7ff}.step.done{border-color:#398e76;color:#88ffd8}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.summary .metric output{font-size:clamp(18px,3.8vw,34px)}.notice{background:#1e2931;border:1px solid #68532c;border-radius:9px;padding:9px;color:#f7dbab;font-size:12px}.panel h2{font-size:14px;margin:0 0 10px}.badge{font-weight:800;color:#9fc8df}.guide{display:grid;grid-template-columns:130px minmax(0,1fr);gap:10px;align-items:center}.guide svg{width:128px;height:72px}.guide svg .phone{animation:sweep 3s ease-in-out infinite alternate;transform-origin:40px 35px}@keyframes sweep{0%{transform:translateX(-8px)}100%{transform:translateX(8px)}}.guide-title{font-weight:800}.guide-text{font-size:12px;color:#b7cad9}.field{display:flex;flex-direction:column;gap:3px;font-size:12px;color:#b3c8dd;min-width:100px;flex:1}.field select,.field input{width:100%}.roomcode{font-size:25px;font-weight:900;letter-spacing:3px;font-variant-numeric:tabular-nums}.helptext{font-size:12px;color:var(--muted)}.dialogpanel{border-left:3px solid var(--amber);padding-left:10px}.controls{gap:6px} .controls button{padding:7px 10px}#pinInput{max-width:116px;text-align:center;font-weight:800;letter-spacing:2px}.rowspace{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}details{margin-top:8px}summary{color:#9fdaff;font-size:12px;cursor:pointer}.loading{color:var(--amber)}.successText{color:var(--mint)}.badText{color:var(--red)}
@@ -59,7 +59,9 @@ function fitBoard(markers,kind,w,h,cam){
  if(candidates.length<4)return null;
  const hypotheses=[];
  let H=homography(samplePoints(candidates,kind));if(H)hypotheses.push(H);
- for(let i=0;i<candidates.length;i++){
+ // When all decoded markers are mutually consistent, skip expensive subset search.
+ const quick=!!H&&candidates.length>=5&&candidates.every(m=>markerMeanResidual(H,m)<2.7);
+ if(!quick){for(let i=0;i<candidates.length;i++){
   H=homography(samplePoints(candidates.filter((_,j)=>i!==j),kind));
   if(H)hypotheses.push(H);
  }
@@ -73,6 +75,7 @@ function fitBoard(markers,kind,w,h,cam){
         Math.max(...coords.map(p=>p.y))-Math.min(...coords.map(p=>p.y))<.4)continue;
      H=homography(samplePoints(four,kind));if(H)hypotheses.push(H);
     }
+ }
  let best=null;
  for(const candidate of hypotheses){
   const errors=candidates.map(m=>markerMeanResidual(candidate,m));
@@ -94,7 +97,7 @@ function fitBoard(markers,kind,w,h,cam){
  const q=rotation(H,w,h,cam);
  const xs=good.map(p=>p.x),ys=good.map(p=>p.y);
  const bbox={x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};
- const valid=ids.size>=5&&err<=2.7&&bbox.x1-bbox.x0>=120&&bbox.y1-bbox.y0>=85&&Number.isFinite(q.yaw)&&Number.isFinite(q.pitch);
+ const valid=ids.size>=5&&err<=2.7&&bbox.x1-bbox.x0>=w*.20&&bbox.y1-bbox.y0>=h*.18&&Number.isFinite(q.yaw)&&Number.isFinite(q.pitch);
  return{H,R:q.R,yaw:q.yaw,pitch:q.pitch,inliers:ids.size,error:err,points:good,bbox,valid};
 }
 function cross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
@@ -111,7 +114,7 @@ if(typeof module==='object'&&module.exports)module.exports=api;else root.AlignGe
 </script>
 </head>
 <body><main class="wrap">
-<header class="header"><div class="brand">ALIGN<span>CAM</span> <small style="color:#d5e5f5;font-size:13px">V4.5 · LIVE LEVEL / VEHICLE SPECS</small></div><div class="hgroup"><span class="pill">DUAL PHONE · FRONT / REAR</span><span class="pill" id="libStatus">Starting detector…</span></div></header>
+<header class="header"><div class="brand">ALIGN<span>CAM</span> <small style="color:#d5e5f5;font-size:13px">V4.6 · RELIABLE TARGET TRACKING</small></div><div class="hgroup"><span class="pill">DUAL PHONE · FRONT / REAR</span><span class="pill" id="libStatus">Starting detector…</span></div></header>
 <section class="panel" id="phoneLevels"><div class="rowspace"><div class="sectionhead">LIVE PHONE BUBBLE LEVELS — ABSOLUTE 0°</div><div class="controls"><button class="success" id="phoneZeroBtn">SET PHONE ZERO (BOTH)</button><button id="clearPhoneZeroBtn">CLEAR PHONE ZERO (BOTH)</button><button class="primary" id="referenceQuickBtn">SET REFERENCE ZERO</button><button id="wheelQuickBtn">SET TARGET ZERO</button></div></div>
 <div class="levels-grid">
 <div class="level-card"><div class="level-circle" id="leftBubble"><div class="level-dot" id="leftDot"></div></div><div><b>LEFT PHONE</b><div class="level-values"><div><small>Vertical error (ABS)</small><strong id="leftVerticalAbs">—</strong></div><div><small>Horizontal error (ABS)</small><strong id="leftHorizontalAbs">—</strong></div><div><small>Roll (ABS)</small><strong id="leftRollAbs">—</strong></div><div><small>Lean since ZERO</small><strong id="leftLeanRel">—</strong></div><div><small>Roll since ZERO</small><strong id="leftRollRel">—</strong></div></div><span class="level-state" id="leftPhoneState">NO SENSOR DATA</span></div></div><div class="level-card"><div class="level-circle" id="rightBubble"><div class="level-dot" id="rightDot"></div></div><div><b>RIGHT PHONE</b><div class="level-values"><div><small>Vertical error (ABS)</small><strong id="rightVerticalAbs">—</strong></div><div><small>Horizontal error (ABS)</small><strong id="rightHorizontalAbs">—</strong></div><div><small>Roll (ABS)</small><strong id="rightRollAbs">—</strong></div><div><small>Lean since ZERO</small><strong id="rightLeanRel">—</strong></div><div><small>Roll since ZERO</small><strong id="rightRollRel">—</strong></div></div><span class="level-state" id="rightPhoneState">NO SENSOR DATA</span></div></div></div>
@@ -148,8 +151,8 @@ if(typeof module==='object'&&module.exports)module.exports=api;else root.AlignGe
  <div class="guide" style="margin-top:6px"><svg viewBox="0 0 130 75" role="img" aria-label="Animated setup guide"><rect x="3" y="17" width="124" height="47" rx="5" fill="#172c40" stroke="#5281a1"/><circle cx="29" cy="53" r="10" stroke="#8ba7b9" stroke-width="5" fill="#172c40"/><circle cx="104" cy="53" r="10" stroke="#8ba7b9" stroke-width="5" fill="#172c40"/><path d="M10 44 L23 28 L90 28 L117 44" fill="none" stroke="#90b9c9" stroke-width="3"/><g class="phone"><rect x="52" y="1" width="25" height="34" rx="4" fill="#0b151f" stroke="#59e7b0" stroke-width="2"/><circle cx="65" cy="7" r="3" fill="#59e7b0"/><path d="M65 9 V15" stroke="#59e7b0"/></g><path d="M65 36 L65 70" stroke="#f3b85b" stroke-dasharray="3 3"/></svg><div><div id="guideTitle" class="guide-title">STEP 1 — Print and mount targets</div><div id="guideText" class="guide-text">Print the three A4 targets at 100% scale; attach each to a rigid, flat panel.</div><div id="autoState" class="helptext">Tracking starts automatically when the camera is ready.</div></div></div>
 </section>
 <section class="grid2" style="margin-bottom:10px">
- <div class="camera-panel" id="leftPanel"><div class="camera-title"><span>LEFT CAMERA</span><span class="badge" id="leftQuality">WAITING</span></div><div class="frame" id="leftFrame"><video id="localVideo" muted autoplay playsinline></video><canvas id="leftCanvas" width="640" height="480"></canvas><span class="aim-marker" aria-hidden="true"></span><span class="gyro-state" id="leftGyroState">SENSOR OFF</span><span class="phone-angle-overlay" id="leftPhoneOverlay">PHONE LEVEL —</span><div class="cam-level" id="leftCamLevel"><span class="cam-level-dot" id="leftCamLevelDot"></span></div><span class="stamp">LEFT</span><div class="alert" id="leftAlert">Waiting for camera</div></div><div class="metrics"><div class="metric"><label>Yaw / Δ from target ZERO</label><output id="leftToe">—</output></div><div class="metric"><label>Vertical tilt</label><output id="leftCamber">—</output></div><div class="metric"><label>Target upright</label><output id="leftLevel">—</output></div><div class="metric"><label>Quality</label><output id="leftError">—</output></div></div></div>
- <div class="camera-panel" id="rightPanel"><div class="camera-title"><span>RIGHT CAMERA</span><span class="badge" id="rightQuality">WAITING</span></div><div class="frame" id="rightFrame"><video id="remoteVideo" muted autoplay playsinline></video><canvas id="rightCanvas" width="640" height="480"></canvas><span class="aim-marker" aria-hidden="true"></span><span class="gyro-state" id="rightGyroState">SENSOR OFF</span><span class="phone-angle-overlay" id="rightPhoneOverlay">PHONE LEVEL —</span><div class="cam-level" id="rightCamLevel"><span class="cam-level-dot" id="rightCamLevelDot"></span></div><span class="stamp">RIGHT</span><div class="alert" id="rightAlert">Waiting for pairing</div></div><div class="metrics"><div class="metric"><label>Yaw / Δ from target ZERO</label><output id="rightToe">—</output></div><div class="metric"><label>Vertical tilt</label><output id="rightCamber">—</output></div><div class="metric"><label>Target upright</label><output id="rightLevel">—</output></div><div class="metric"><label>Quality</label><output id="rightError">—</output></div></div></div>
+ <div class="camera-panel" id="leftPanel"><div class="camera-title"><span>LEFT CAMERA</span><span class="badge" id="leftQuality">WAITING</span></div><div class="frame" id="leftFrame"><video id="localVideo" muted autoplay playsinline></video><canvas id="leftCanvas" width="640" height="480"></canvas><span class="aim-marker" aria-hidden="true"></span><span class="gyro-state" id="leftGyroState">SENSOR OFF</span><span class="phone-angle-overlay" id="leftPhoneOverlay">PHONE LEVEL —</span><div class="cam-level" id="leftCamLevel"><span class="cam-level-dot" id="leftCamLevelDot"></span></div><span class="stamp">LEFT</span><div class="alert" id="leftAlert">Waiting for camera</div></div><div class="metrics"><div class="metric"><label>Yaw / Δ from target ZERO</label><output id="leftToe">—</output></div><div class="metric"><label>Vertical tilt</label><output id="leftCamber">—</output></div><div class="metric"><label>Target tilt (advisory)</label><output id="leftLevel">—</output></div><div class="metric"><label>Quality</label><output id="leftError">—</output></div></div></div>
+ <div class="camera-panel" id="rightPanel"><div class="camera-title"><span>RIGHT CAMERA</span><span class="badge" id="rightQuality">WAITING</span></div><div class="frame" id="rightFrame"><video id="remoteVideo" muted autoplay playsinline></video><canvas id="rightCanvas" width="640" height="480"></canvas><span class="aim-marker" aria-hidden="true"></span><span class="gyro-state" id="rightGyroState">SENSOR OFF</span><span class="phone-angle-overlay" id="rightPhoneOverlay">PHONE LEVEL —</span><div class="cam-level" id="rightCamLevel"><span class="cam-level-dot" id="rightCamLevelDot"></span></div><span class="stamp">RIGHT</span><div class="alert" id="rightAlert">Waiting for pairing</div></div><div class="metrics"><div class="metric"><label>Yaw / Δ from target ZERO</label><output id="rightToe">—</output></div><div class="metric"><label>Vertical tilt</label><output id="rightCamber">—</output></div><div class="metric"><label>Target tilt (advisory)</label><output id="rightLevel">—</output></div><div class="metric"><label>Quality</label><output id="rightError">—</output></div></div></div>
 </section>
 <section class="panel"><div class="sectionhead">Measurements · <span id="axleLabel">FRONT</span> axle</div><div class="summary"><div class="metric"><label>Left yaw</label><output id="sumL">—</output></div><div class="metric"><label>Right yaw</label><output id="sumR">—</output></div><div class="metric"><label>Relative yaw / Δ after ZERO</label><output id="sumToe">—</output></div><div class="metric"><label>Readiness</label><output id="sumReady">WAITING</output></div></div><div class="helptext" style="margin-top:6px">Angles are relative to the shared REF target, not verified wheel-alignment specifications. Measuring actual camber requires phone gravity and a verified wheel-parallel target. A green quality indicator does not certify vehicle alignment.</div></section>
 <section class="panel"><div class="rowspace"><div class="sectionhead">Controls &amp; print</div><div class="controls"><a href="targets.html?v=43" target="_blank" style="text-decoration:none"><button class="warn">PRINT 3 FULL A4 TARGETS</button></a><button id="flipBtn">Switch camera</button><button class="success" id="captureRefBtn">SET REF TARGET ZERO (BOTH)</button><button id="zeroBtn">SET WHEEL TARGET ZERO (BOTH)</button><button id="resetTargetZerosBtn">CLEAR TARGET ZEROS (BOTH)</button><button id="saveBtn">Save results</button></div></div><div class="chips" style="margin-top:8px"><span class="pill" id="detectorCount">Markers: —</span><span class="pill" id="calibStatus">Camera: nominal</span><span class="pill" id="referenceStatus">Shared reference: not captured</span><span class="pill" id="targetStatus">Target: —</span><span class="pill" id="filterStatus">Filter: initializing</span></div>
@@ -345,7 +348,14 @@ function expectedBoard(){return step===2?'REF':ownRole();}
 function meshHas(ids){return [...ids].filter(x=>G.boardType(x));}
 function qualityOf(fit){if(!fit)return 'NO TARGET';if(!fit.valid)return 'LOW QUALITY';return fit.inliers>=8&&fit.error<1.8?'GOOD':'FAIR';}
 function qualityClass(x){return x==='GOOD'?'good':x==='WRONG TARGET'?'bad':'';}
-function fitFor(markers,kind){return G.fitBoard(markers,kind,rawCanvas.width,rawCanvas.height,ownCalibration);}
+function effectiveCalibration(){
+ if(!ownCalibration)return null;
+ const cal=ownCalibration;
+ if(!cal.w||!cal.h)return cal;
+ const sx=rawCanvas.width/cal.w,sy=rawCanvas.height/cal.h;
+ return {...cal,fx:cal.fx*sx,fy:cal.fy*sy,cx:cal.cx*sx,cy:cal.cy*sy,skew:(cal.skew||0)*sx};
+}
+function fitFor(markers,kind){return G.fitBoard(markers,kind,rawCanvas.width,rawCanvas.height,effectiveCalibration());}
 function correctLevelStatus(v,fit){if(!fit||!fit.valid)return '—';if(!Number.isFinite(v.level))return 'UNAVAILABLE';return `${v.level.toFixed(1)}°`+(v.level<=3?' ✓':' !');}
 
 let phoneZero=null, wheelTargetZero=null, lastLevelDraw=0, lastRemoteSensorTime=0;
@@ -445,15 +455,16 @@ function refreshSensorChips(){
  if(a){a.textContent=localLive?'SENSOR ON':'SENSOR OFF';a.classList.toggle('active',localLive);}
  if(b){b.textContent=remoteLive?'SENSOR ON':'SENSOR OFF';b.classList.toggle('active',remoteLive);}
 }
-function showOwn(){refreshSensorChips();refreshPhoneLevels();let c=peerRole==='LEFT'?'left':'right';const x=lastOwn;const frame=$(c+'Frame');frame.classList.toggle('good',x?.status==='GOOD'&&x?.filterStable);frame.classList.toggle('bad',['WRONG TARGET','LOW QUALITY','NOT UPRIGHT','UNSTABLE','LIGHT FLICKER'].includes(x?.status));frame.classList.toggle('warning',['STABILIZING','MOVING'].includes(x?.status));setBadge(c+'Quality',x?.status||'WAITING');setText(c+'Alert',x?.note||'Point this camera at the correct target');setText(c+'Toe',fnum(displayedToe(x)));setText(c+'Camber',fnum(x?.camber));setText(c+'Level',x?.levelText||'UNAVAILABLE');setText(c+'Error',Number.isFinite(x?.fit?.error)?x.fit.error.toFixed(1)+' px':'—');$(c+'Camber').className=x?.camber==null?'warn':'';$(c+'Level').className=x?.status==='WRONG TARGET'?'bad':x?.level!=null&&x.level<=3?'good':x?.level!=null?'bad':'warn';}
-function showOther(){refreshSensorChips();refreshPhoneLevels();let c=peerRole==='LEFT'?'right':'left';const x=lastOther;const frame=$(c+'Frame');frame.classList.toggle('good',x?.status==='GOOD'&&x?.filterStable);frame.classList.toggle('bad',['WRONG TARGET','LOW QUALITY','NOT UPRIGHT','UNSTABLE','LIGHT FLICKER'].includes(x?.status));frame.classList.toggle('warning',['STABILIZING','MOVING'].includes(x?.status));setBadge(c+'Quality',x?.status||'WAITING');setText(c+'Alert',x?.note||'Waiting for second phone');setText(c+'Toe',fnum(displayedToe(x)));setText(c+'Camber',fnum(x?.camber));setText(c+'Level',x?.levelText||'UNAVAILABLE');setText(c+'Error',Number.isFinite(x?.error)?x.error.toFixed(1)+' px':'—');$(c+'Level').className=x?.level!=null&&x.level<=3?'good':x?.level!=null?'bad':'warn';}
+function showOwn(){refreshSensorChips();refreshPhoneLevels();let c=peerRole==='LEFT'?'left':'right';const x=lastOwn;const frame=$(c+'Frame');frame.classList.toggle('good',x?.status==='GOOD'&&x?.filterStable&&!x?.mountWarning);frame.classList.toggle('bad',['WRONG TARGET','LOW QUALITY','NOT UPRIGHT','UNSTABLE','LIGHT FLICKER'].includes(x?.status));frame.classList.toggle('warning',!!x?.mountWarning||['STABILIZING','MOVING'].includes(x?.status));setBadge(c+'Quality',x?.status||'WAITING');setText(c+'Alert',x?.note||'Point this camera at the correct target');setText(c+'Toe',fnum(displayedToe(x)));setText(c+'Camber',fnum(x?.camber));setText(c+'Level',x?.levelText||'UNAVAILABLE');setText(c+'Error',Number.isFinite(x?.fit?.error)?x.fit.error.toFixed(1)+' px':'—');$(c+'Camber').className=x?.camber==null?'warn':'';$(c+'Level').className=x?.status==='WRONG TARGET'?'bad':x?.level!=null&&x.level<=3?'good':x?.level!=null?'bad':'warn';}
+function showOther(){refreshSensorChips();refreshPhoneLevels();let c=peerRole==='LEFT'?'right':'left';const x=lastOther;const frame=$(c+'Frame');frame.classList.toggle('good',x?.status==='GOOD'&&x?.filterStable&&!x?.mountWarning);frame.classList.toggle('bad',['WRONG TARGET','LOW QUALITY','NOT UPRIGHT','UNSTABLE','LIGHT FLICKER'].includes(x?.status));frame.classList.toggle('warning',!!x?.mountWarning||['STABILIZING','MOVING'].includes(x?.status));setBadge(c+'Quality',x?.status||'WAITING');setText(c+'Alert',x?.note||'Waiting for second phone');setText(c+'Toe',fnum(displayedToe(x)));setText(c+'Camber',fnum(x?.camber));setText(c+'Level',x?.levelText||'UNAVAILABLE');setText(c+'Error',Number.isFinite(x?.error)?x.error.toFixed(1)+' px':'—');$(c+'Level').className=x?.level!=null&&x.level<=3?'good':x?.level!=null?'bad':'warn';}
 function summary(){
  const L=peerRole==='LEFT'?lastOwn:lastOther,R=peerRole==='RIGHT'?lastOwn:lastOther;
  const l=displayedToe(L),r=displayedToe(R);
  setText('sumL',fnum(l));setText('sumR',fnum(r));
- const valid=L?.status==='GOOD'&&R?.status==='GOOD'&&L?.filterStable&&R?.filterStable&&L?.ref&&R?.ref&&Number.isFinite(l)&&Number.isFinite(r);
+ const mountFault=!!L?.mountWarning||!!R?.mountWarning;
+ const valid=!mountFault&&L?.status==='GOOD'&&R?.status==='GOOD'&&L?.filterStable&&R?.filterStable&&L?.ref&&R?.ref&&Number.isFinite(l)&&Number.isFinite(r);
  setText('sumToe',valid?fnum(l-r):'—');
- setText('sumReady',valid?'STABLE':(['UNSTABLE','LIGHT FLICKER'].includes(L?.status)||['UNSTABLE','LIGHT FLICKER'].includes(R?.status)?'UNSTABLE':'WAITING'));
+ setText('sumReady',valid?'STABLE':mountFault?'CHECK MOUNT':(['UNSTABLE','LIGHT FLICKER'].includes(L?.status)||['UNSTABLE','LIGHT FLICKER'].includes(R?.status)?'UNSTABLE':'WAITING'));
  $('sumReady').className=valid?'good':'warn';
  if(valid){currentReadings[axle].LEFT=l;currentReadings[axle].RIGHT=r;}
 }
@@ -503,16 +514,50 @@ function autoCalibrate(refFit){
  if(calFrames.length>=6&&!ownCalibration){let c=G.calibrationHomographies(calFrames.map(x=>x.H),rawCanvas.width,rawCanvas.height);if(c){ownCalibration=c;try{localStorage.setItem('aligncamV4intrinsic',JSON.stringify({...c,w:rawCanvas.width,h:rawCanvas.height}));}catch(e){}}}
  setText('calibStatus',ownCalibration?`Camera calibration: ${ownCalibration.views||calFrames.length} views`:`Camera calibration: ${calFrames.length}/6 views`);
 }
-function calcMeasure(markers){const all=markers.map(m=>({id:m.id,corners:m.corners}));let kinds={LEFT:0,RIGHT:0,REF:0};for(let m of markers){const k=G.boardType(m.id);if(k)kinds[k]++;}const required=expectedBoard();const expected=fitFor(markers,required);if(required==='REF')autoCalibrate(expected);
- let foreign=Object.entries(kinds).filter(([k,v])=>k!==required&&v>=3).sort((a,b)=>b[1]-a[1]);let out={status:'NO TARGET',note:'Point at '+required+' target (12 coded squares)',markers:all,fit:expected,ref:!!ownRef,relativeYaw:null,camber:null,level:null,levelText:'UNAVAILABLE',ids:markers.map(x=>x.id),frameWidth:rawCanvas.width,frameHeight:rawCanvas.height,kinds};
- if(foreign.length&&(!expected||foreign[0][1]>kinds[required])){out.status='WRONG TARGET';out.note=`WRONG TARGET: ${foreign[0][0]} detected! SWAP CAMERAS OR TARGETS.`;stableFrames=0;return out;}
- if(!expected){stableFrames=0;return out;}if(!expected.valid){out.status='LOW QUALITY';out.note='Target detected but too small, blurred or not flat';stableFrames=0;return out;}
- let v=vertical(expected.R);out.status=qualityOf(expected);out.note=`Tracking ${required} • ${expected.inliers}/12 IDs • ${expected.error.toFixed(1)} px`;
- out.level=v.level;out.camber=v.camber;out.levelText=correctLevelStatus(v,expected);out.relativeYaw=ownRef&&required!=='REF'?G.relativeYaw(expected.R,ownRef):null;
- if(Number.isFinite(v.level)&&v.level>3){out.status='NOT UPRIGHT';out.note=`TARGET TILTED ${v.level.toFixed(1)}°. CHECK TARGET MOUNTING; DO NOT FORCE WHEEL CAMBER TO ZERO.`;}
- // Reference capture is gated later, after multi-stage stability filtering.
- if(out.status!=='GOOD'&&out.status!=='FAIR')out.note='Tracking not reliable';return out;}
-function payload(r){let {status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,fit,ids,filterState,filterScatter,filterStable,filterMoving}=r;return {phoneLevel:currentPhoneLevel(),targetZero:wheelTargetZero,sensorActive:!!gravity&&Date.now()-gravTime<2500,sensorSource,status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,filterState,filterScatter,filterStable,filterMoving,error:fit?.error??null,inliers:fit?.inliers??0,ids:ids||[],markers:(r.markers||[]).map(m=>({id:m.id,corners:m.corners.map(p=>({x:p.x,y:p.y}))}))};}
+function calcMeasure(markers){
+ const all=markers.map(m=>({id:m.id,corners:m.corners}));
+ let kinds={LEFT:0,RIGHT:0,REF:0};
+ for(const m of markers){const kind=G.boardType(m.id);if(kind)kinds[kind]++;}
+ const required=expectedBoard(),expected=fitFor(markers,required);
+ if(required==='REF')autoCalibrate(expected);
+ const foreign=Object.entries(kinds).filter(([kind,n])=>kind!==required&&n>=3).sort((a,b)=>b[1]-a[1]);
+ const count=kinds[required];
+ const out={status:'NO TARGET',note:'Point at '+required+' target (12 coded squares)',markers:all,fit:expected,ref:!!ownRef,relativeYaw:null,camber:null,level:null,levelText:'UNAVAILABLE',ids:markers.map(x=>x.id),frameWidth:rawCanvas.width,frameHeight:rawCanvas.height,kinds,mountWarning:false,targetFill:null};
+ if(foreign.length&&(!expected||foreign[0][1]>count)){
+  out.status='WRONG TARGET';
+  out.note='WRONG TARGET: '+foreign[0][0]+' detected! SWAP CAMERAS OR TARGETS.';
+  stableFrames=0;return out;
+ }
+ if(!expected){
+  out.note=count>0
+   ?'ONLY '+count+'/12 MARKERS FOUND — MOVE CLOSER / AIM AT WHOLE TARGET'
+   :'NO MARKERS — KEEP FULL TARGET IN FRAME, IMPROVE FOCUS / WHITE LIGHT';
+  stableFrames=0;return out;
+ }
+ const spanX=expected.bbox.x1-expected.bbox.x0;
+ const spanY=expected.bbox.y1-expected.bbox.y0;
+ out.targetFill=spanX/rawCanvas.width;
+ if(!expected.valid){
+  out.status='LOW QUALITY';
+  out.note=out.targetFill<.20||spanY/rawCanvas.height<.18
+    ?'TARGET TOO SMALL ('+Math.round(out.targetFill*100)+'% OF FRAME) — MOVE CLOSER'
+    :'TARGET '+expected.inliers+'/12 MARKERS, '+expected.error.toFixed(1)+' PX ERROR — HOLD STEADY / IMPROVE LIGHT';
+  stableFrames=0;return out;
+ }
+ const v=vertical(expected.R);
+ out.status=qualityOf(expected);
+ out.level=v.level;out.camber=v.camber;out.levelText=correctLevelStatus(v,expected);
+ out.relativeYaw=ownRef&&required!=='REF'?G.relativeYaw(expected.R,ownRef):null;
+ out.mountWarning=Number.isFinite(v.level)&&v.level>12;
+ out.note='TRACKING '+required+' '+expected.inliers+'/12 IDs · '+expected.error.toFixed(1)+' px'+(out.targetFill<.32?' · MOVE CLOSER FOR PRECISION':'');
+ if(Number.isFinite(v.level)&&v.level>3){
+  // Tilt is a mounting advisory, not a marker-recognition failure.
+  // A target can be read even while lying on a table during setup.
+  out.note+=' · TARGET LEAN '+v.level.toFixed(1)+'°'+(out.mountWarning?' — MOUNT UPRIGHT FOR ALIGNMENT':'');
+ }
+ return out;
+}
+function payload(r){let {status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,fit,ids,filterState,filterScatter,filterStable,filterMoving,mountWarning,targetFill}=r;return {mountWarning:!!mountWarning,targetFill:targetFill??null,phoneLevel:currentPhoneLevel(),targetZero:wheelTargetZero,sensorActive:!!gravity&&Date.now()-gravTime<2500,sensorSource,status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,filterState,filterScatter,filterStable,filterMoving,error:fit?.error??null,inliers:fit?.inliers??0,ids:ids||[],markers:(r.markers||[]).map(m=>({id:m.id,corners:m.corners.map(p=>({x:p.x,y:p.y}))}))};}
 function sampleLuminance(img){
   // 64 fixed samples, avoiding expensive whole-frame image processing.
   const {data,width:w,height:h}=img;let values=[];
@@ -539,7 +584,7 @@ function blockedFrame(raw,status,note){
 }
 function analyzeFrame(){
  if(!localStream||!localVideo.videoWidth)return;
- configureCanvas(localVideo,ownCanvas,800);
+ configureCanvas(localVideo,ownCanvas,1120);
  if(rawCanvas.width!==ownCanvas.width||rawCanvas.height!==ownCanvas.height){rawCanvas.width=ownCanvas.width;rawCanvas.height=ownCanvas.height;resetFilter();}
  rawCtx.drawImage(localVideo,0,0,rawCanvas.width,rawCanvas.height);
  if(!ready){ownCtx.drawImage(rawCanvas,0,0);return;}
@@ -572,7 +617,7 @@ function analyzeFrame(){
 }
 function renderRemote(){if(!remoteVideo.videoWidth){remoteCtx.fillStyle='#091521';remoteCtx.fillRect(0,0,remoteCanvas.width,remoteCanvas.height);remoteCtx.fillStyle='#8daac5';remoteCtx.font='18px system-ui';remoteCtx.fillText('Waiting for the second camera',20,Math.round(remoteCanvas.height/2));return;}
  configureCanvas(remoteVideo,remoteCanvas,800);remoteCtx.drawImage(remoteVideo,0,0,remoteCanvas.width,remoteCanvas.height);let marks=lastOther?.markers||[];let kind=peerRole==='LEFT'?'RIGHT':'LEFT';const sx=remoteCanvas.width/(lastOther?.frameWidth||640),sy=remoteCanvas.height/(lastOther?.frameHeight||480);let scaled=marks.map(m=>({id:m.id,corners:m.corners?.map(p=>({x:p.x*sx,y:p.y*sy}))||[]}));drawOutline(remoteCtx,scaled,expectedBoard()==='REF'?'REF':kind,remoteCanvas.width,remoteCanvas.height);if(['WRONG TARGET','UNSTABLE','LIGHT FLICKER'].includes(lastOther?.status)){remoteCtx.fillStyle='rgba(190,22,47,0.25)';remoteCtx.fillRect(0,0,remoteCanvas.width,remoteCanvas.height);}}
-function saveCurrent(){const car={make:$('make').value,model:$('model').value,year:$('year').value};const obj={version:'AlignCam V4.5',createdAt:new Date().toISOString(),car,axle,suspensionReference:getSpecData(),referenceStatus:'USER ENTERED — NOT FACTORY VERIFIED',zeros:{phone:phoneZero,localWheel:wheelTargetZero},measurements:currentReadings,quality:{local:lastOwn?.status,remote:lastOther?.status},disclaimer:'Relative orientation only. Not certified for vehicle alignment.'};let b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`aligncam_${car.make}_${car.model}_${obj.createdAt.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
+function saveCurrent(){const car={make:$('make').value,model:$('model').value,year:$('year').value};const obj={version:'AlignCam V4.6',createdAt:new Date().toISOString(),car,axle,suspensionReference:getSpecData(),referenceStatus:'USER ENTERED — NOT FACTORY VERIFIED',zeros:{phone:phoneZero,localWheel:wheelTargetZero},measurements:currentReadings,quality:{local:lastOwn?.status,remote:lastOther?.status},disclaimer:'Relative orientation only. Not certified for vehicle alignment.'};let b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`aligncam_${car.make}_${car.model}_${obj.createdAt.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
 function manualRef(){if(!lastOwn?.fit?.valid||!lastOwn?.filterStable||step!==2){warn('Show the REF board and wait for STABLE tracking');return;}ownRef=lastOwn.fit.R;resetFilter();send({type:'ref',value:true});warn('REF captured. Do not move the phones.');}
 function zeroChange(){if(!lastOwn||!Number.isFinite(lastOwn.relativeYaw)){warn('No valid wheel angle to zero');return;}const d=lastOwn.relativeYaw;ownRef=ownRef;warn(`Change reference set: ${d.toFixed(2)}°. Tracking keeps absolute angles.`);}
 function init(){G=window.AlignGeometry;filters=window.AlignFilters?new window.AlignFilters.QualityPipeline():null;try{let c=JSON.parse(localStorage.getItem('aligncamV4intrinsic'));if(c?.fx&&c?.fy){ownCalibration=c;setText('calibStatus','Camera calibration: saved');}}catch(e){}initCar();loadSpecData();automaticMotionStart();cameraOn().catch(e=>warn('Camera permission: '+e.message));setStep(0);showOwn();showOther();summary();refreshPhoneLevels();setInterval(refreshPhoneLevels,180);ready=!!(window.Peer&&window.AR&&window.CV&&window.AlignGeometry);if(!window.AR||!window.CV||!window.AlignGeometry||!window.AlignFilters){setText('libStatus','Detector library failed');warn('Camera works, but tracking or filters failed to load. Reload while online.');}else{try{detector=new AR.Detector({dictionaryName:'ARUCO_4X4_1000',maxHammingDistance:1});ready=true;setText('libStatus','Tracker ready · 4×4/1000');}catch(e){ready=false;setText('libStatus','Tracker error');warn(e.message);}}
