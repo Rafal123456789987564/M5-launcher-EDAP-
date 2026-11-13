@@ -252,7 +252,7 @@ function selectTargetMode(profile,remote=false){
  const selector=$('targetProfile');if(selector)selector.value=profile;
  try{localStorage.setItem('aligncamV47mode',profile)}catch(e){}
  if(window.AR){detector=new AR.Detector({dictionaryName:profile==='CLASSIC'?'ARUCO':'ARUCO_4X4_1000',maxHammingDistance:1});ready=true;}
- resetFilter();ownRef=null;otherRef=false;autoRefDone=false;wheelTargetZero=null;calFrames=[];ownCalibration=null;
+ resetFilter();runoutClearLocal('TARGET MODE CHANGED');ownRef=null;otherRef=false;autoRefDone=false;wheelTargetZero=null;calFrames=[];ownCalibration=null;
  lastOwn=null;lastOther=null;stableFrames=0;
  setText('calibStatus','Camera needs calibration at this zoom / profile');
  setText('referenceStatus','REFERENCE REQUIRED — capture again');
@@ -271,7 +271,7 @@ async function setOpticalZoom(value,userInitiated=false){
   const badge=$('zoomStatus');if(badge)badge.textContent='OPTICAL ZOOM '+zoomNow.toFixed(1)+'×';
   // The camera intrinsics change at every optical zoom setting. Never reuse calibration.
   ownRef=null;autoRefDone=false;ownCalibration=null;calFrames=[];wheelTargetZero=null;stableFrames=0;
-  resetFilter();setText('calibStatus','RECALIBRATE AFTER ZOOM');
+  runoutClearLocal('CAMERA ZOOM CHANGED');resetFilter();setText('calibStatus','RECALIBRATE AFTER ZOOM');
   setText('referenceStatus','REF REQUIRED AFTER ZOOM');
   if(userInitiated)warn('Optical zoom set to '+zoomNow.toFixed(1)+'×. Recapture REF.');
   nextAutoZoom=Date.now()+3500;
@@ -486,7 +486,7 @@ function saveSpecData(){
  }catch(e){warn('Cannot save vehicle specifications: '+e.message);}
 }
 function onVehicleSelection(){persistSettings();$('specPr').value='';loadSpecData();sendCar();}
-function setStep(v){const previousAxle=axle;resetFilter();step=Math.max(0,Math.min(4,v));const names=['PRINT','PAIR','REFERENCE','FRONT','REAR'];$('steps').innerHTML=names.map((name,i)=>`<div class="step ${i===step?'active':i<step?'done':''}">${i+1}. ${name}</div>`).join('');const titles=['PRINT THE THREE A4 TARGETS','PAIR BOTH PHONES','CAPTURE ONE SHARED REFERENCE','MEASURE THE FRONT AXLE','MEASURE THE REAR AXLE'];const desc=['Print the NEW V4.7 long-range REF, LEFT and RIGHT targets in landscape A4, 100%, on rigid flat supports.','Open this URL on both phones. Use Create room on LEFT and Join on RIGHT.','Show both cameras the same fixed REF target; a steady reference is captured automatically.','Place LEFT and RIGHT targets on front wheels. Red means wrong target.','Move target plates to rear wheels. Keep camera stand and reference unchanged if possible.'];setText('guideTitle',`STEP ${step+1} — ${titles[step]}`);setText('guideText',desc[step]);if(step===3||step===4){axle=step===3?'FRONT':'REAR';$('axle').value=axle;setText('axleLabel',axle);if(axle!==previousAxle)wheelTargetZero=null;if(peerRole==='LEFT')send({type:'step',step,axle});loadSpecData();if(peerRole==='LEFT')sendCar();} if(step!==2)autoRefDone=false;}
+function setStep(v){const previousAxle=axle;resetFilter();step=Math.max(0,Math.min(4,v));const names=['PRINT','PAIR','REFERENCE','FRONT','REAR'];$('steps').innerHTML=names.map((name,i)=>`<div class="step ${i===step?'active':i<step?'done':''}">${i+1}. ${name}</div>`).join('');const titles=['PRINT THE THREE A4 TARGETS','PAIR BOTH PHONES','CAPTURE ONE SHARED REFERENCE','MEASURE THE FRONT AXLE','MEASURE THE REAR AXLE'];const desc=['Print the NEW V4.7 long-range REF, LEFT and RIGHT targets in landscape A4, 100%, on rigid flat supports.','Open this URL on both phones. Use Create room on LEFT and Join on RIGHT.','Show both cameras the same fixed REF target; a steady reference is captured automatically.','Place LEFT and RIGHT targets on front wheels. Red means wrong target.','Move target plates to rear wheels. Keep camera stand and reference unchanged if possible.'];setText('guideTitle',`STEP ${step+1} — ${titles[step]}`);setText('guideText',desc[step]);if(step===3||step===4){axle=step===3?'FRONT':'REAR';$('axle').value=axle;setText('axleLabel',axle);if(axle!==previousAxle){wheelTargetZero=null;runoutClearLocal('AXLE CHANGED');}if(peerRole==='LEFT')send({type:'step',step,axle});loadSpecData();if(peerRole==='LEFT')sendCar();} if(step!==2)autoRefDone=false;}
 function syncedStep(v){step=v;setStep(v);}
 function assignRole(newRole){
  resetFilter();peerRole=newRole;setText('sideBadge',`This phone: ${newRole} (${newRole==='LEFT'?'host':'guest'})`);
@@ -655,7 +655,7 @@ function clearPhoneZeroBoth(){
  clearPhoneZeroLocal();send({type:'phoneZeroCmd',action:'clear'});
 }
 function armReferenceLocal(){
- ownRef=null;wheelTargetZero=null;autoRefDone=false;stableFrames=0;otherRef=false;
+ runoutClearLocal('NEW SHARED REFERENCE');ownRef=null;wheelTargetZero=null;autoRefDone=false;stableFrames=0;otherRef=false;
  setText('referenceStatus','Reference armed — show REF board to both cameras.');
  setStep(2);resetFilter();warn('REF ZERO armed. Hold the fixed REF board steady for automatic capture.');
 }
@@ -702,11 +702,18 @@ function summary(){
  setText('sumReady',valid?'STABLE':mountFault?'CHECK MOUNT':(['UNSTABLE','LIGHT FLICKER'].includes(L?.status)||['UNSTABLE','LIGHT FLICKER'].includes(R?.status)?'UNSTABLE':(L?.status==='FAIR'||R?.status==='FAIR')?'COARSE — OPTICAL ZOOM':'WAITING'));
  $('sumReady').className=valid?'good':'warn';
  if(valid){currentReadings[axle].LEFT=l;currentReadings[axle].RIGHT=r;}
+ refreshWorkshop();refreshRunoutPanel();
 }
 function send(o){try{if(dataConn?.open)dataConn.send(o);}catch(e){}}
 function receive(d){
  if(!d||typeof d!=='object')return;
  if(d.type==='targetProfile'){if(peerRole!=='LEFT')selectTargetMode(d.value,true);return;}
+ if(d.type==='runoutCmd'){
+  if(d.action==='start')runoutStartLocal();
+  else if(d.action==='finish')runoutFinishLocal();
+  else if(d.action==='clear')runoutClearLocal('CLEARED FROM HOST');
+  return;
+ }
  if(d.type==='measure'){
   lastOther=d.data;lastRemoteSensorTime=Date.now();showOther();summary();return;
  }
@@ -748,7 +755,7 @@ async function cameraOn(){
  if(!frameTimer)frameTimer=setInterval(analyzeFrame,190);
  if(!renderTimer)renderTimer=setInterval(renderRemote,120);
 }
-async function flipCamera(){if(!localStream)return;resetFilter();localStream.getTracks().forEach(t=>t.stop());localStream=null;cameraFacing=cameraFacing==='environment'?'user':'environment';ownRef=null;wheelTargetZero=null;phoneZero=null;await cameraOn();if(call&&peer&&dataConn?.open){try{call.close()}catch(e){}call=peer.call(dataConn.peer,localStream);bindCall(call);}}
+async function flipCamera(){if(!localStream)return;runoutClearLocal('CAMERA SWITCHED');resetFilter();localStream.getTracks().forEach(t=>t.stop());localStream=null;cameraFacing=cameraFacing==='environment'?'user':'environment';ownRef=null;wheelTargetZero=null;phoneZero=null;await cameraOn();if(call&&peer&&dataConn?.open){try{call.close()}catch(e){}call=peer.call(dataConn.peer,localStream);bindCall(call);}}
 function configureCanvas(video,can,limit){if(!video.videoWidth)return false;let w=Math.min(limit,video.videoWidth),h=Math.round(w*video.videoHeight/video.videoWidth);if(can.width!==w||can.height!==h){can.width=w;can.height=h;}let box=can.closest('.frame');if(box)box.style.aspectRatio=`${video.videoWidth} / ${video.videoHeight}`;return true;}
 function drawOutline(ctx,markers,kind,w,h){ctx.lineWidth=2;let count=0;for(let m of markers){if(G.boardType(m.id)!==kind)continue;count++;ctx.strokeStyle='#59e7b0';ctx.fillStyle='#59e7b0';ctx.beginPath();for(let i=0;i<4;i++){let pt=m.corners[i];if(i===0)ctx.moveTo(pt.x,pt.y);else ctx.lineTo(pt.x,pt.y);}ctx.closePath();ctx.stroke();ctx.font='bold 14px sans-serif';ctx.fillText(String(m.id),m.corners[0].x+5,m.corners[0].y-5);}return count;}
 function autoCalibrate(refFit){
@@ -788,13 +795,17 @@ function calcMeasure(markers){
  const inclination=vertical(fit.R);
  result.status=qualityOf(fit);
  result.level=inclination.level;result.camber=inclination.camber;result.levelText=correctLevelStatus(inclination,fit);
- result.relativeYaw=ownRef&&expectedType!=='REF'?G.relativeYaw(fit.R,ownRef):null;
+ const rawTargetYaw=ownRef&&expectedType!=='REF'?G.relativeYaw(fit.R,ownRef):null;
+ const compensatedYaw=rawTargetYaw!==null&&runoutSolution?.ok&&window.AlignRunout
+  ?AlignRunout.relativeYaw(fit.R,runoutSolution.axisBoard,ownRef):null;
+ result.relativeYaw=Number.isFinite(compensatedYaw)?compensatedYaw:rawTargetYaw;
+ result.runoutCorrected=Number.isFinite(compensatedYaw);
  result.mountWarning=Number.isFinite(inclination.level)&&inclination.level>12;
- result.note='TRACKING '+expectedType+' · '+fit.inliers+'/'+countRequired+' TAGS · '+fit.error.toFixed(1)+' px'+(result.mountWarning?' · CHECK MOUNT ANGLE':'')+(step<2?' · READY FOR SETUP':'');
+ result.note='TRACKING '+expectedType+(result.runoutCorrected?' · RUNOUT CORRECTED':' · CLAMP NOT CALIBRATED')+' · '+fit.inliers+'/'+countRequired+' TAGS · '+fit.error.toFixed(1)+' px'+(result.mountWarning?' · CHECK MOUNT ANGLE':'')+(step<2?' · READY FOR SETUP':'');
  if(fit.largestSide<46)result.note+=' · COARSE AT THIS DISTANCE — OPTICAL ZOOM NEEDED';
  return result;
 }
-function payload(r){let {status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,fit,ids,filterState,filterScatter,filterStable,filterMoving,mountWarning,targetFill}=r;return {mountWarning:!!mountWarning,targetFill:targetFill??null,phoneLevel:currentPhoneLevel(),targetZero:wheelTargetZero,sensorActive:!!gravity&&Date.now()-gravTime<2500,sensorSource,status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,filterState,filterScatter,filterStable,filterMoving,error:fit?.error??null,inliers:fit?.inliers??0,ids:ids||[],markers:(r.markers||[]).map(m=>({id:m.id,corners:m.corners.map(p=>({x:p.x,y:p.y}))}))};}
+function payload(r){let {status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,fit,ids,filterState,filterScatter,filterStable,filterMoving,mountWarning,targetFill}=r;return {runoutValid:!!runoutSolution?.ok,runoutState:runoutStateString(),runoutSamples:runoutSamples.length,runoutScatter:runoutSolution?.scatterDeg??null,mountWarning:!!mountWarning,targetFill:targetFill??null,phoneLevel:currentPhoneLevel(),targetZero:wheelTargetZero,sensorActive:!!gravity&&Date.now()-gravTime<2500,sensorSource,status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,filterState,filterScatter,filterStable,filterMoving,error:fit?.error??null,inliers:fit?.inliers??0,ids:ids||[],markers:(r.markers||[]).map(m=>({id:m.id,corners:m.corners.map(p=>({x:p.x,y:p.y}))}))};}
 function sampleLuminance(img){
   // 64 fixed samples, avoiding expensive whole-frame image processing.
   const {data,width:w,height:h}=img;let values=[];
@@ -856,7 +867,7 @@ function analyzeFrame(){
    filtered=blockedFrame(filtered,'LIGHT FLICKER','LIGHTING / EXPOSURE JUMP — USE STEADY DIFFUSE LIGHT');
    if(filters)filters.reset();
  }
- lastOwn=filtered;
+ runoutAddFrame(filtered);lastOwn=filtered;
  const expected=expectedBoard();
  if(expected==='REF'&&step===2&&lastOwn.filterStable&&['GOOD','FAIR'].includes(lastOwn.status)&&lastOwn.fit?.valid){
    stableFrames++;
@@ -876,10 +887,10 @@ function analyzeFrame(){
 }
 function renderRemote(){if(!remoteVideo.videoWidth){remoteCtx.fillStyle='#091521';remoteCtx.fillRect(0,0,remoteCanvas.width,remoteCanvas.height);remoteCtx.fillStyle='#8daac5';remoteCtx.font='18px system-ui';remoteCtx.fillText('Waiting for the second camera',20,Math.round(remoteCanvas.height/2));return;}
  configureCanvas(remoteVideo,remoteCanvas,800);remoteCtx.drawImage(remoteVideo,0,0,remoteCanvas.width,remoteCanvas.height);let marks=lastOther?.markers||[];let kind=peerRole==='LEFT'?'RIGHT':'LEFT';const sx=remoteCanvas.width/(lastOther?.frameWidth||640),sy=remoteCanvas.height/(lastOther?.frameHeight||480);let scaled=marks.map(m=>({id:m.id,corners:m.corners?.map(p=>({x:p.x*sx,y:p.y*sy}))||[]}));drawOutline(remoteCtx,scaled,expectedBoard()==='REF'?'REF':kind,remoteCanvas.width,remoteCanvas.height);if(lastOther?.status==='WRONG TARGET'){remoteCtx.fillStyle='rgba(190,22,47,0.25)';remoteCtx.fillRect(0,0,remoteCanvas.width,remoteCanvas.height);}}
-function saveCurrent(){const car={make:$('make').value,model:$('model').value,year:$('year').value};const obj={version:'AlignCam V4.8',createdAt:new Date().toISOString(),car,axle,suspensionReference:getSpecData(),referenceStatus:'USER ENTERED — NOT FACTORY VERIFIED',zeros:{phone:phoneZero,localWheel:wheelTargetZero},measurements:currentReadings,quality:{local:lastOwn?.status,remote:lastOther?.status},disclaimer:'Relative orientation only. Not certified for vehicle alignment.'};let b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`aligncam_${car.make}_${car.model}_${obj.createdAt.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
+function saveCurrent(){const car={make:$('make').value,model:$('model').value,year:$('year').value};const obj={version:'AlignCam V4.8',createdAt:new Date().toISOString(),car,axle,suspensionReference:getSpecData(),referenceStatus:'USER ENTERED — NOT FACTORY VERIFIED',zeros:{phone:phoneZero,localWheel:wheelTargetZero},measurements:currentReadings,runout:runoutSolution?.ok?{samples:runoutSolution.samples,scatterDeg:runoutSolution.scatterDeg}:null,beforeAfter:snapshots[axle],quality:{local:lastOwn?.status,remote:lastOther?.status},disclaimer:'Relative orientation only. Not certified for vehicle alignment.'};let b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`aligncam_${car.make}_${car.model}_${obj.createdAt.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
 function manualRef(){if(!lastOwn?.fit?.valid||!lastOwn?.filterStable||step!==2){warn('Show the REF board and wait for STABLE tracking');return;}ownRef=lastOwn.fit.R;resetFilter();send({type:'ref',value:true});warn('REF captured. Do not move the phones.');}
 function zeroChange(){if(!lastOwn||!Number.isFinite(lastOwn.relativeYaw)){warn('No valid wheel angle to zero');return;}const d=lastOwn.relativeYaw;ownRef=ownRef;warn(`Change reference set: ${d.toFixed(2)}°. Tracking keeps absolute angles.`);}
-function init(){G=window.AlignGeometry;window.ALIGN_PROFILE=localStorage.getItem('aligncamV47mode')||'LONG';if(!['LONG','OLD','CLASSIC'].includes(window.ALIGN_PROFILE))window.ALIGN_PROFILE='LONG';$('targetProfile').value=window.ALIGN_PROFILE;filters=window.AlignFilters?new window.AlignFilters.QualityPipeline():null;try{let c=JSON.parse(localStorage.getItem('aligncamV4intrinsic'));if(c?.fx&&c?.fy){ownCalibration=c;setText('calibStatus','Camera calibration: saved');}}catch(e){}initCar();loadSpecData();automaticMotionStart();cameraOn().catch(e=>warn('Camera permission: '+e.message));setStep(0);showOwn();showOther();summary();refreshPhoneLevels();setInterval(refreshPhoneLevels,180);ready=!!(window.Peer&&window.AR&&window.CV&&window.AlignGeometry);if(!window.AR||!window.CV||!window.AlignGeometry||!window.AlignFilters){setText('libStatus','Detector library failed');warn('Camera works, but tracking or filters failed to load. Reload while online.');}else{try{detector=new AR.Detector({dictionaryName:window.ALIGN_PROFILE==='CLASSIC'?'ARUCO':'ARUCO_4X4_1000',maxHammingDistance:1});ready=true;setText('libStatus','Tracker ready · 4×4/1000');}catch(e){ready=false;setText('libStatus','Tracker error');warn(e.message);}}
+function init(){G=window.AlignGeometry;try{const prev=JSON.parse(localStorage.getItem('aligncamV48Snapshots'));if(prev?.FRONT&&prev?.REAR)snapshots=prev;}catch(e){}window.ALIGN_PROFILE=localStorage.getItem('aligncamV47mode')||'LONG';if(!['LONG','OLD','CLASSIC'].includes(window.ALIGN_PROFILE))window.ALIGN_PROFILE='LONG';$('targetProfile').value=window.ALIGN_PROFILE;filters=window.AlignFilters?new window.AlignFilters.QualityPipeline():null;try{let c=JSON.parse(localStorage.getItem('aligncamV4intrinsic'));if(c?.fx&&c?.fy){ownCalibration=c;setText('calibStatus','Camera calibration: saved');}}catch(e){}initCar();loadSpecData();automaticMotionStart();cameraOn().catch(e=>warn('Camera permission: '+e.message));setStep(0);showOwn();showOther();summary();refreshPhoneLevels();setInterval(refreshPhoneLevels,180);ready=!!(window.Peer&&window.AR&&window.CV&&window.AlignGeometry);if(!window.AlignRunout)warn('Runout calibration unavailable: runout.js did not load.');if(!window.AR||!window.CV||!window.AlignGeometry||!window.AlignFilters){setText('libStatus','Detector library failed');warn('Camera works, but tracking or filters failed to load. Reload while online.');}else{try{detector=new AR.Detector({dictionaryName:window.ALIGN_PROFILE==='CLASSIC'?'ARUCO':'ARUCO_4X4_1000',maxHammingDistance:1});ready=true;setText('libStatus','Tracker ready · 4×4/1000');}catch(e){ready=false;setText('libStatus','Tracker error');warn(e.message);}}
  $('targetProfile').onchange=()=>selectTargetMode($('targetProfile').value);
  $('zoomOutBtn').onclick=()=>setOpticalZoom(zoomNow-.35,true);
  $('zoomInBtn').onclick=()=>setOpticalZoom(zoomNow+.35,true);
@@ -897,6 +908,12 @@ function init(){G=window.AlignGeometry;window.ALIGN_PROFILE=localStorage.getItem
  $('saveSpecBtn').onclick=saveSpecData;
  $('loadSpecBtn').onclick=()=>loadSpecData(true);
  $('specPr').onchange=()=>setText('specBadge','Suspension PR code edited — select LOAD SAVED SPECS or SAVE VEHICLE SPECS.');
+ $('runoutStartBtn').onclick=runoutStartBoth;
+ $('runoutFinishBtn').onclick=runoutFinishBoth;
+ $('runoutClearBtn').onclick=runoutClearBoth;
+ $('takeBeforeBtn').onclick=()=>takeSnapshot('before');
+ $('takeAfterBtn').onclick=()=>takeSnapshot('after');
+ $('printReportBtn').onclick=exportWorkshopReport;
  $('saveBtn').onclick=saveCurrent;
  $('make').onchange=()=>{setupCar();onVehicleSelection();};
  $('model').onchange=onVehicleSelection;
