@@ -18,7 +18,7 @@ class AngleChannel{
   const dt=clamp(this.lastT===null?.145:t-this.lastT,.04,.5);
   this.lastT=t;
   const pixelErr=Number.isFinite(meta.pixelErr)?meta.pixelErr:2;
-  const markers=Number.isFinite(meta.markers)?meta.markers:7;
+  const markers=Number.isFinite(meta.markers)?meta.markers:4;
   const R=clamp((.055+.07*pixelErr+2/Math.max(4,markers))**2,.018,.55);
   const recent=this.samples.slice(-9);
   if(recent.length>=5){
@@ -52,7 +52,7 @@ class AngleChannel{
   this.outputs.push(this.smooth);if(this.outputs.length>11)this.outputs.shift();
   this.goodStreak++;
   const scatter=std(this.samples.slice(-7)),outScatter=std(this.outputs.slice(-7));
-  const stable=this.goodStreak>=6&&outScatter<=.19&&scatter<=.42;
+  const stable=this.goodStreak>=5&&outScatter<=.22&&scatter<=.48;
   const moving=this.goodStreak>=6&&Math.abs(this.v)>.16&&scatter<=1;
   this.lastReason=stable?'STABLE':moving?'MOVING':'SETTLING';
   if(!stable&&!moving)return{ok:false,reason:this.lastReason,scatter};
@@ -65,7 +65,7 @@ class QualityPipeline{
  reset(){this.yaw.clear();this.camber.clear();this.level.clear();this.orientation.clear();}
  process(raw,t=Date.now()/1000){
   if(!raw)return null;
-  const accepted=(raw.status==='GOOD'||raw.status==='FAIR')&&raw.fit?.valid&&raw.fit.inliers>=6&&raw.fit.error<=2.45;
+  const accepted=(raw.status==='GOOD'||raw.status==='FAIR')&&raw.fit?.valid&&raw.fit.inliers>=(raw.fit.mode==='CLASSIC'?1:2)&&raw.fit.error<=3.2;
   if(!accepted){
    for(const channel of [this.yaw,this.camber,this.level,this.orientation])channel.invalidate('TRACKING LOST');
    return{...raw,relativeYaw:null,camber:null,level:null,levelText:'UNAVAILABLE',filterStable:false,filterState:raw.status,filterMoving:false,filterScatter:null,status:(raw.status==='GOOD'||raw.status==='FAIR')?'LOW QUALITY':raw.status};
