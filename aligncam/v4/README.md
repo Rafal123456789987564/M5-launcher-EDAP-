@@ -1,4 +1,30 @@
-# ALIGNCAM V4.7 — Long-range dual-phone optical tracker
+# ALIGNCAM V4.8 — Workshop Dashboard, Before/After & Wheel Runout (Experimental)
+
+English-language two-phone web app: https://rafal123456789987564.github.io/M5-launcher-EDAP-/aligncam/v4/?v=48
+
+## New in V4.8
+
+**Independently implemented** capabilities inspired by general optical wheel-alignment practice, including workflows described by [AristarhUcolov/wheel-alignment](https://github.com/AristarhUcolov/wheel-alignment):
+
+- **Workshop LIVE panel:** large LEFT/RIGHT relative yaw, a centre reference gauge (display-only ±5 degrees), and LEFT − RIGHT relative difference. One-touch SAVE BEFORE / SAVE AFTER and a printable downloadable HTML workshop report. Gauge green means stable tracking, NOT manufacturer-spec compliance.
+- **Experimental rim-clamp runout compensation:** captures at least 4 distinct wheel rotation poses and estimates the actual rotation axis from many relative rotation pairs. A robust pair consensus rejects inconsistent poses. After a valid fit (axis scatter <=2.5 degrees), relative yaw is calculated from the fitted wheel axle rather than the uncorrected marker normal. Failure results in NO correction.
+- **Both phones controlled from the first:** START RUNOUT, FINISH & CALCULATE and CLEAR RUNOUT command the remote phone over the existing WebRTC data channel. Pose capture occurs automatically when a frame is stable.
+- Original new implementation: [runout.js](runout.js). No upstream AGPL-3.0 source was copied or linked into this proprietary application.
+
+## Safe setup and limitations
+
+1. Print the matching long-range REF / LEFT / RIGHT A4 sheets. Pair both phones.
+2. Complete the fixed common REF calibration with cameras fixed in position.
+3. For runout compensation, safely support the wheels using suitable workshop equipment. Never rotate a vehicle wheel on an insecure stand or while anyone is underneath.
+4. START RUNOUT. Rotate each wheel slowly and stop several times at distinct orientations; the program will collect samples. Aim for 6–8 positions with good marker tracking on each side.
+5. FINISH & CALCULATE. Repeat if the solver says the samples disagree. This result is an experimental axis-estimate, not certified wheel geometry.
+6. SAVE BEFORE, perform the adjustment only after independent verification using reliable equipment, then SAVE AFTER and export the report.
+7. Changing the camera, zoom, board profile, axle or REF invalidates the runout calibration.
+
+The wheel-axis solver was unit-tested on ideal and slightly perturbed simulated wheel rotations, and rejects a stationary target. It has NOT been tested on a real vehicle. Camera lens distortion, inaccurate intrinsics, clamp looseness, reflector reference orientation and wheel bearing play can still cause unsafe errors. Never interpret these camera-relative angles as independently verified factory toe, camber or caster.
+
+---
+
 
 English-language mobile web application hosted at:
 https://rafal123456789987564.github.io/M5-launcher-EDAP-/aligncam/v4/
