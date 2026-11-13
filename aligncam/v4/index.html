@@ -329,6 +329,91 @@ let gravity=null,gravTime=0,gravStatus='UNAVAILABLE',levelPermission=false,senso
 let filters=null, luminanceHistory=[], lastLum=null, flashUntil=0;
 function resetFilter(){if(filters)filters.reset();luminanceHistory=[];lastLum=null;}
 let currentReadings={FRONT:{LEFT:null,RIGHT:null},REAR:{LEFT:null,RIGHT:null}};
+let runoutCollect=false,runoutSamples=[],runoutSolution=null,runoutReason='NOT STARTED',runoutLastSampleT=0;
+let snapshots={FRONT:{before:null,after:null},REAR:{before:null,after:null}};
+function runoutStateString(){return runoutSolution?.ok?'CALIBRATED · ±'+runoutSolution.scatterDeg.toFixed(2)+'°':runoutCollect?'CAPTURING '+runoutSamples.length+' POSITIONS':'NOT CALIBRATED';}
+function refreshRunoutPanel(){
+ const own=peerRole==='LEFT'?'runoutLeft':'runoutRight',other=peerRole==='LEFT'?'runoutRight':'runoutLeft';
+ const ownEl=$(own),otherEl=$(other);
+ ownEl.textContent=(peerRole==='LEFT'?'LEFT: ':'RIGHT: ')+runoutStateString();
+ ownEl.classList.toggle('good',!!runoutSolution?.ok);
+ const otherRole=peerRole==='LEFT'?'RIGHT: ':'LEFT: ';
+ otherEl.textContent=otherRole+(lastOther?.runoutState||'WAITING');
+ otherEl.classList.toggle('good',!!lastOther?.runoutValid);
+ $('runoutMode').textContent=runoutCollect?'CAPTURING':runoutSolution?.ok?'COMPENSATION ON':'OFF';
+}
+function runoutClearLocal(message){
+ runoutCollect=false;runoutSamples=[];runoutSolution=null;runoutReason=message||'NOT STARTED';
+ refreshRunoutPanel();
+}
+function runoutStartLocal(){
+ if(!window.AlignRunout){warn('Wheel axis module not loaded. Reload page.');return;}
+ if(window.ALIGN_PROFILE==='CLASSIC'){warn('Use LONG RANGE or OLD multi-marker targets for runout compensation.');return;}
+ if(step<3||!ownRef){warn('Runout requires a fixed shared REF first; complete the reference step.');return;}
+ runoutSamples=[];runoutSolution=null;runoutCollect=true;runoutReason='CAPTURE STARTED';
+ refreshRunoutPanel();warn('RUNOUT: rotate safely supported wheel slowly. Pause at each position until sample counter grows.');
+}
+function runoutStartBoth(){runoutStartLocal();if(runoutCollect)send({type:'runoutCmd',action:'start'});}
+function runoutAddFrame(frame){
+ if(!runoutCollect||!window.AlignRunout)return;
+ const fit=frame?.fit;
+ if(!fit?.valid||fit.error>2.5||fit.largestSide<38||fit.inliers<2||!frame.filterStable)return;
+ if(Date.now()-runoutLastSampleT<1000)return;
+ const pose=fit.R;
+ if(runoutSamples.some(saved=>AlignRunout.relativeAngle(pose,saved)<17))return;
+ runoutSamples.push(pose.map(row=>row.slice()));runoutLastSampleT=Date.now();
+ if(runoutSamples.length>12)runoutSamples.shift();
+ refreshRunoutPanel();warn('RUNOUT: captured '+runoutSamples.length+' / min. 4 positions. Rotate wheel further.');
+}
+function runoutFinishLocal(){
+ runoutCollect=false;
+ if(!window.AlignRunout){runoutReason='MODULE MISSING';refreshRunoutPanel();return false;}
+ const fit=AlignRunout.fit(runoutSamples);runoutReason=fit.reason;
+ runoutSolution=fit.ok?fit:null;
+ refreshRunoutPanel();
+ warn(fit.ok?'RUNOUT AXIS READY: '+fit.samples+' poses · scatter '+fit.scatterDeg.toFixed(2)+'°. Keep clamp fixed.':'RUNOUT NOT VALID: '+fit.reason+'. Keep a fixed camera and rotate in several positions.');
+ return fit.ok;
+}
+function runoutFinishBoth(){runoutFinishLocal();send({type:'runoutCmd',action:'finish'});}
+function runoutClearBoth(){runoutClearLocal('CLEARED');send({type:'runoutCmd',action:'clear'});warn('Runout compensation cleared on both phones.');}
+function workReadings(){
+ const L=peerRole==='LEFT'?lastOwn:lastOther,R=peerRole==='RIGHT'?lastOwn:lastOther;
+ const l=displayedToe(L),r=displayedToe(R),delta=(Number.isFinite(l)&&Number.isFinite(r))?l-r:null;
+ const trustworthy=!!(L?.filterStable&&R?.filterStable&&L?.ref&&R?.ref&&L.status==='GOOD'&&R.status==='GOOD');
+ return {l,r,delta,ready:trustworthy,runout:!!(L?.runoutValid&&R?.runoutValid)};
+}
+function refreshWorkshop(){
+ const d=workReadings();
+ $('workLeft').textContent=fnum(d.l);$('workRight').textContent=fnum(d.r);$('workDifference').textContent=fnum(d.delta);
+ for(const [id,val,good] of [['needleLeft',d.l,lastOwn?.filterStable],['needleRight',d.r,lastOther?.filterStable],['needleDifference',d.delta,d.ready]]){
+  const needle=$(id);needle.style.left=(Number.isFinite(val)?Math.max(4,Math.min(96,50+val*10)):50)+'%';needle.classList.toggle('good',!!good);
+ }
+ $('workLeftInfo').textContent=Number.isFinite(d.l)?'Camera-relative yaw · range ±5°':'NO VALID LEFT TRACKING';
+ $('workRightInfo').textContent=Number.isFinite(d.r)?'Camera-relative yaw · range ±5°':'NO VALID RIGHT TRACKING';
+ $('workTotalInfo').textContent='Difference, NOT certified total factory toe';
+ $('workQuality').textContent=d.ready?'TRACKED':'WAIT';
+ $('workshopState').textContent=d.ready?(d.runout?'RUNOUT COMPENSATED · RELATIVE':'TRACKING · RUNOUT NOT DONE'):'WAITING / CHECK TRACKING';
+ const ss=snapshots[axle]||{};
+ $('beforeValue').textContent=fnum(ss.before?.difference);
+ $('afterValue').textContent=fnum(ss.after?.difference);
+ $('changeValue').textContent=Number.isFinite(ss.before?.difference)&&Number.isFinite(ss.after?.difference)?fnum(ss.after.difference-ss.before.difference):'—';
+}
+function takeSnapshot(phase){
+ const d=workReadings();
+ if(!d.ready||!Number.isFinite(d.delta)){warn('Cannot capture '+phase.toUpperCase()+': connect both phones, capture REF and wait for stable tracking.');return;}
+ snapshots[axle][phase]={timestamp:new Date().toISOString(),left:d.l,right:d.r,difference:d.delta,runoutCompensated:d.runout,vehicle:{make:$('make').value,model:$('model').value,year:$('year').value},quality:'TRACKED / NOT CERTIFIED'};
+ try{localStorage.setItem('aligncamV48Snapshots',JSON.stringify(snapshots));}catch(e){}
+ refreshWorkshop();warn(phase.toUpperCase()+' captured. Relative yaw difference: '+fnum(d.delta));
+}
+function exportWorkshopReport(){
+ const obj={version:'ALIGNCAM V4.8',vehicle:{make:$('make').value,model:$('model').value,year:$('year').value},axle,reference:'Camera-relative; NOT certified factory alignment',suspensionSpec:getSpecData(),snapshots:snapshots[axle],live:workReadings(),runout:{local:runoutSolution?.ok?{samples:runoutSolution.samples,scatterDeg:runoutSolution.scatterDeg}:null,remote:lastOther?.runoutValid??false}};
+ const safe=x=>String(x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+ const before=obj.snapshots.before||{},after=obj.snapshots.after||{};
+ const rows=[['Left yaw',before.left,after.left],['Right yaw',before.right,after.right],['Left − Right',before.difference,after.difference]].map(([name,b,a])=>'<tr><th>'+safe(name)+'</th><td>'+safe(fnum(b))+'</td><td>'+safe(fnum(a))+'</td></tr>').join('');
+ const report='<!doctype html><html lang="en"><meta charset="utf-8"><title>ALIGNCAM Workshop Report</title><style>body{font:16px system-ui;margin:40px;color:#172436}h1{margin:0 0 10px}table{border-collapse:collapse;width:100%;max-width:760px}td,th{border:1px solid #7c8ca2;padding:12px;text-align:left}th{background:#eef1f6}.warning{border-left:4px solid #d18223;padding-left:10px}</style><h1>ALIGNCAM V4.8 | BEFORE / AFTER</h1><p>'+safe(obj.vehicle.make)+' '+safe(obj.vehicle.model)+' · '+safe(obj.vehicle.year)+' · '+safe(axle)+'</p><table><tr><th>RELATIVE ANGLE</th><th>BEFORE</th><th>AFTER</th></tr>'+rows+'</table><p>BEFORE: '+safe(before.timestamp||'not recorded')+' · AFTER: '+safe(after.timestamp||'not recorded')+'</p><p>Clamp runout compensation: '+(before.runoutCompensated?'YES (BEFORE)':'NOT VERIFIED (BEFORE)')+' / '+(after.runoutCompensated?'YES (AFTER)':'NOT VERIFIED (AFTER)')+'</p><p class="warning"><b>Not a certified wheel alignment instrument.</b> Relative camera-frame angle values are not manufacturer toe/camber. The reference and wheel geometry must be independently validated.</p><p>© EDAP 2026 • Personal/internal use only</p></html>';
+ const a=document.createElement('a'),blob=new Blob([report],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob);a.href=url;a.download='ALIGNCAM_BEFORE_AFTER_'+axle+'_'+new Date().toISOString().slice(0,10)+'.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
+}
+
 function fnum(x,n=2){return Number.isFinite(x)?`${x>=0?'+':''}${x.toFixed(n)}°`:'—';}
 function setText(id,v){$(id).textContent=v;}
 function setBadge(id,v){setText(id,v);}
