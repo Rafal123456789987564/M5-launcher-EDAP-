@@ -196,6 +196,84 @@ const ownCanvas=$('leftCanvas'),ownCtx=ownCanvas.getContext('2d',{willReadFreque
 const remoteCanvas=$('rightCanvas'),remoteCtx=remoteCanvas.getContext('2d');
 const rawCanvas=document.createElement('canvas');const rawCtx=rawCanvas.getContext('2d',{willReadFrequently:true});
 let detector=null,ready=false,cameraFacing='environment',frameTimer=null,renderTimer=null,videoFrameW=0,videoFrameH=0;
+let opticsTrack=null,opticsCaps=null,zoomNow=1,zoomLow=1,zoomHigh=1,autoOpticalZoom=true,nextAutoZoom=0;
+let lastDetectionTime=0,lowDetectionFrames=0,lastRecoverTime=0,lastAnalyzeTime=0;
+function selectTargetMode(profile,remote=false){
+ if(!['LONG','OLD','CLASSIC'].includes(profile))return;
+ window.ALIGN_PROFILE=profile;
+ const selector=$('targetProfile');if(selector)selector.value=profile;
+ try{localStorage.setItem('aligncamV47mode',profile)}catch(e){}
+ if(window.AR){detector=new AR.Detector({dictionaryName:profile==='CLASSIC'?'ARUCO':'ARUCO_4X4_1000',maxHammingDistance:1});ready=true;}
+ resetFilter();ownRef=null;otherRef=false;autoRefDone=false;wheelTargetZero=null;calFrames=[];ownCalibration=null;
+ lastOwn=null;lastOther=null;stableFrames=0;
+ setText('calibStatus','Camera needs calibration at this zoom / profile');
+ setText('referenceStatus','REFERENCE REQUIRED — capture again');
+ warn('Target mode changed: '+profile+'. Use matching printed sheets and capture REF again.');
+ if(!remote)send({type:'targetProfile',value:profile});
+ setStep(0);showOwn();showOther();summary();
+}
+async function setOpticalZoom(value,userInitiated=false){
+ if(!opticsTrack||!opticsCaps?.zoom)return false;
+ const range=opticsCaps.zoom;
+ const next=Math.max(range.min||1,Math.min(Math.min(range.max||1,3.0),value));
+ if(Math.abs(next-zoomNow)<.04)return true;
+ try{
+  await opticsTrack.applyConstraints({advanced:[{zoom:next}]});
+  zoomNow=Number(opticsTrack.getSettings()?.zoom)||next;
+  const badge=$('zoomStatus');if(badge)badge.textContent='OPTICAL ZOOM '+zoomNow.toFixed(1)+'×';
+  // The camera intrinsics change at every optical zoom setting. Never reuse calibration.
+  ownRef=null;autoRefDone=false;ownCalibration=null;calFrames=[];wheelTargetZero=null;stableFrames=0;
+  resetFilter();setText('calibStatus','RECALIBRATE AFTER ZOOM');
+  setText('referenceStatus','REF REQUIRED AFTER ZOOM');
+  if(userInitiated)warn('Optical zoom set to '+zoomNow.toFixed(1)+'×. Recapture REF.');
+  nextAutoZoom=Date.now()+3500;
+  return true;
+ }catch(e){autoOpticalZoom=false;const badge=$('zoomStatus');if(badge)badge.textContent='Zoom change rejected by browser';return false;}
+}
+async function initCameraOptics(){
+ opticsTrack=localStream?.getVideoTracks()?.[0]||null;
+ opticsCaps=opticsTrack?.getCapabilities?.()||{};
+ const settings=opticsTrack?.getSettings?.()||{};
+ zoomNow=Number(settings.zoom)||Number(opticsCaps.zoom?.min)||1;
+ zoomLow=Number(opticsCaps.zoom?.min)||1;zoomHigh=Math.min(Number(opticsCaps.zoom?.max)||1,3);
+ const zoomBadge=$('zoomStatus');if(zoomBadge)zoomBadge.textContent=zoomHigh>1.05?'OPTICAL ZOOM '+zoomNow.toFixed(1)+'× (max '+zoomHigh.toFixed(1)+'×)':'NO OPTICAL ZOOM API';
+ const focusModes=opticsCaps.focusMode;
+ if(Array.isArray(focusModes)&&focusModes.includes('continuous')){
+  try{await opticsTrack.applyConstraints({advanced:[{focusMode:'continuous'}]});$('focusStatus').textContent='FOCUS: continuous';}
+  catch(e){$('focusStatus').textContent='FOCUS: browser automatic';}
+ }else $('focusStatus').textContent='FOCUS: '+(settings.focusMode||'browser automatic');
+ nextAutoZoom=Date.now()+4000;lowDetectionFrames=0;
+}
+function maybeAutoOpticalZoom(visible){
+ if(visible>=2){lowDetectionFrames=0;return;}
+ lowDetectionFrames++;
+ if(!autoOpticalZoom||zoomHigh<=1.05||lowDetectionFrames<10||Date.now()<nextAutoZoom)return;
+ if(zoomNow<zoomHigh-.09){setOpticalZoom(Math.min(zoomHigh,zoomNow+.4));lowDetectionFrames=0;}
+ else nextAutoZoom=Date.now()+15000;
+}
+function detectWithFallback(img){
+ let marks=detector.detect(img)||[];
+ const known=marks.filter(m=>G.boardType(m.id)===expectedBoard());
+ if(known.length>=2||Date.now()-lastRecoverTime<1000)return marks;
+ lastRecoverTime=Date.now();
+ // Open-source js-aruco2 adaptive multi-window recovery inspired by OpenCV detector parameters.
+ // The grayscale image already exists; only extra thresholds are calculated on fallback frames.
+ const results=marks.slice();
+ for(const radius of [4,6]){
+  try{
+   CV.adaptiveThreshold(detector.grey,detector.thres,radius,6);
+   const contours=CV.findContours(detector.thres,detector.binary);
+   const cand=detector.notTooNear(detector.clockwiseCorners(detector.findCandidates(contours,img.width*.006,.045,7)),8);
+   const extra=detector.findMarkers(detector.grey,cand,49)||[];
+   for(const m of extra){
+    if(!results.some(x=>x.id===m.id&&Math.hypot(x.corners[0].x-m.corners[0].x,x.corners[0].y-m.corners[0].y)<12))results.push(m);
+   }
+   if(results.filter(m=>G.boardType(m.id)===expectedBoard()).length>=2)break;
+  }catch(e){/* Original detector result remains valid. */}
+ }
+ return results;
+}
+
 let step=0,axle='FRONT',lastOwn=null,lastOther=null,ownRef=null,otherRef=false,ownCalibration=null,calFrames=[],t=0;let stableFrames=0,autoRefDone=false;
 let gravity=null,gravTime=0,gravStatus='UNAVAILABLE',levelPermission=false,sensorSource='NONE',lastMotionSample=0,gyroListenerInstalled=false;
 let filters=null, luminanceHistory=[], lastLum=null, flashUntil=0;
@@ -493,6 +571,7 @@ function summary(){
 function send(o){try{if(dataConn?.open)dataConn.send(o);}catch(e){}}
 function receive(d){
  if(!d||typeof d!=='object')return;
+ if(d.type==='targetProfile'){if(peerRole!=='LEFT')selectTargetMode(d.value,true);return;}
  if(d.type==='measure'){
   lastOther=d.data;lastRemoteSensorTime=Date.now();showOther();summary();return;
  }
@@ -520,12 +599,20 @@ function receive(d){
   loadSpecData();return;
  }
 }
-function bindConn(conn){if(dataConn&&dataConn!==conn){try{dataConn.close()}catch(e){}}dataConn=conn;conn.on('open',()=>{setStatus('Paired / data connected',true);send({type:'ref',value:!!ownRef});if(lastOwn)send({type:'measure',data:payload(lastOwn)});if(peerRole==='LEFT'){send({type:'step',step,axle});sendCar();}});conn.on('data',receive);conn.on('close',()=>{setStatus('Connection lost',false);lastOther=null;showOther();summary();});conn.on('error',e=>setStatus('Data error: '+e.message,false));}
+function bindConn(conn){if(dataConn&&dataConn!==conn){try{dataConn.close()}catch(e){}}dataConn=conn;conn.on('open',()=>{setStatus('Paired / data connected',true);send({type:'ref',value:!!ownRef});if(lastOwn)send({type:'measure',data:payload(lastOwn)});if(peerRole==='LEFT'){send({type:'step',step,axle});send({type:'targetProfile',value:window.ALIGN_PROFILE||'LONG'});sendCar();}});conn.on('data',receive);conn.on('close',()=>{setStatus('Connection lost',false);lastOther=null;showOther();summary();});conn.on('error',e=>setStatus('Data error: '+e.message,false));}
 function bindCall(c){call=c;c.on('stream',stream=>{remoteVideo.srcObject=stream;remoteVideo.play().catch(()=>{});setStatus('Live video + data paired',true);});c.on('close',()=>{remoteVideo.srcObject=null;});c.on('error',e=>setStatus('Video error: '+e.message,false));}
 function clearPair(){if(call)try{call.close()}catch(e){}if(dataConn)try{dataConn.close()}catch(e){}if(peer)try{peer.destroy()}catch(e){}peer=null;call=null;dataConn=null;lastOther=null;remoteVideo.srcObject=null;setStatus('Not connected',false);showOther();summary();}
 async function makeRoom(){try{await cameraOn();if(!window.Peer)throw Error('PeerJS has not loaded');clearPair();assignRole('LEFT');room=String(100000+Math.floor(Math.random()*900000));setText('roomCode','Connecting…');peer=new Peer('aligncam-v4-'+room,{debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}});peer.on('open',()=>{setText('roomCode',room);setStatus('Room '+room+' ready',true);if(step===0)setStep(1);});peer.on('connection',bindConn);peer.on('call',c=>{bindCall(c);c.answer(localStream);});peer.on('error',e=>setStatus('Pair error: '+e.message,false));}catch(e){warn(e.message)}}
 async function joinRoom(){try{const code=$('pinInput').value.replace(/\D/g,'');if(code.length!==6)throw Error('Enter the 6-digit room PIN');await cameraOn();if(!window.Peer)throw Error('PeerJS has not loaded');clearPair();assignRole('RIGHT');peer=new Peer({debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}]}});peer.on('open',()=>{let host='aligncam-v4-'+code;bindConn(peer.connect(host,{reliable:true,serialization:'json'}));bindCall(peer.call(host,localStream));setStatus('Connecting to host…');});peer.on('call',c=>{bindCall(c);c.answer(localStream)});peer.on('error',e=>setStatus('Pair error: '+e.message,false));}catch(e){warn(e.message)}}
-async function cameraOn(){if(localStream){localVideo.play().catch(()=>{});return;}if(!navigator.mediaDevices?.getUserMedia)throw Error('Open the secure HTTPS URL to enable your camera');localStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:cameraFacing},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:25,max:30}},audio:false});localVideo.srcObject=localStream;await localVideo.play().catch(()=>{});if(!frameTimer)frameTimer=setInterval(analyzeFrame,145);if(!renderTimer)renderTimer=setInterval(renderRemote,90);}
+async function cameraOn(){
+ if(localStream){localVideo.play().catch(()=>{});return;}
+ if(!navigator.mediaDevices?.getUserMedia)throw Error('Open the secure HTTPS URL to enable your camera');
+ localStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:cameraFacing},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:24,max:30}},audio:false});
+ localVideo.srcObject=localStream;await localVideo.play().catch(()=>{});
+ await initCameraOptics();
+ if(!frameTimer)frameTimer=setInterval(analyzeFrame,190);
+ if(!renderTimer)renderTimer=setInterval(renderRemote,120);
+}
 async function flipCamera(){if(!localStream)return;resetFilter();localStream.getTracks().forEach(t=>t.stop());localStream=null;cameraFacing=cameraFacing==='environment'?'user':'environment';ownRef=null;wheelTargetZero=null;phoneZero=null;await cameraOn();if(call&&peer&&dataConn?.open){try{call.close()}catch(e){}call=peer.call(dataConn.peer,localStream);bindCall(call);}}
 function configureCanvas(video,can,limit){if(!video.videoWidth)return false;let w=Math.min(limit,video.videoWidth),h=Math.round(w*video.videoHeight/video.videoWidth);if(can.width!==w||can.height!==h){can.width=w;can.height=h;}let box=can.closest('.frame');if(box)box.style.aspectRatio=`${video.videoWidth} / ${video.videoHeight}`;return true;}
 function drawOutline(ctx,markers,kind,w,h){ctx.lineWidth=2;let count=0;for(let m of markers){if(G.boardType(m.id)!==kind)continue;count++;ctx.strokeStyle='#59e7b0';ctx.fillStyle='#59e7b0';ctx.beginPath();for(let i=0;i<4;i++){let pt=m.corners[i];if(i===0)ctx.moveTo(pt.x,pt.y);else ctx.lineTo(pt.x,pt.y);}ctx.closePath();ctx.stroke();ctx.font='bold 14px sans-serif';ctx.fillText(String(m.id),m.corners[0].x+5,m.corners[0].y-5);}return count;}
@@ -596,13 +683,13 @@ function blockedFrame(raw,status,note){
 }
 function analyzeFrame(){
  if(!localStream||!localVideo.videoWidth)return;
- configureCanvas(localVideo,ownCanvas,1120);
+ configureCanvas(localVideo,ownCanvas,1600);
  if(rawCanvas.width!==ownCanvas.width||rawCanvas.height!==ownCanvas.height){rawCanvas.width=ownCanvas.width;rawCanvas.height=ownCanvas.height;resetFilter();}
  rawCtx.drawImage(localVideo,0,0,rawCanvas.width,rawCanvas.height);
  if(!ready){ownCtx.drawImage(rawCanvas,0,0);return;}
  const img=rawCtx.getImageData(0,0,rawCanvas.width,rawCanvas.height),now=Date.now()/1000;
  const flicker=checkFlicker(sampleLuminance(img),now);
- let marks=[];try{marks=detector.detect(img)||[];}catch(e){warn('Tracking error: '+e.message);lastOwn=blockedFrame(lastOwn||{},'UNSTABLE','DETECTOR ERROR — CHECK LIGHTING');showOwn();summary();return;}
+ let marks=[];try{marks=detectWithFallback(img);maybeAutoOpticalZoom(marks.filter(m=>G.boardType(m.id)===expectedBoard()).length);}catch(e){warn('Tracking error: '+e.message);lastOwn=blockedFrame(lastOwn||{},'UNSTABLE','DETECTOR ERROR — CHECK LIGHTING');showOwn();summary();return;}
  const raw=calcMeasure(marks);
  let filtered=(filters||window.AlignFilters&& (filters=new window.AlignFilters.QualityPipeline()))?.process(raw,now)||raw;
  if(flicker && filtered.status!=='WRONG TARGET'){
@@ -632,7 +719,11 @@ function renderRemote(){if(!remoteVideo.videoWidth){remoteCtx.fillStyle='#091521
 function saveCurrent(){const car={make:$('make').value,model:$('model').value,year:$('year').value};const obj={version:'AlignCam V4.7',createdAt:new Date().toISOString(),car,axle,suspensionReference:getSpecData(),referenceStatus:'USER ENTERED — NOT FACTORY VERIFIED',zeros:{phone:phoneZero,localWheel:wheelTargetZero},measurements:currentReadings,quality:{local:lastOwn?.status,remote:lastOther?.status},disclaimer:'Relative orientation only. Not certified for vehicle alignment.'};let b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`aligncam_${car.make}_${car.model}_${obj.createdAt.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
 function manualRef(){if(!lastOwn?.fit?.valid||!lastOwn?.filterStable||step!==2){warn('Show the REF board and wait for STABLE tracking');return;}ownRef=lastOwn.fit.R;resetFilter();send({type:'ref',value:true});warn('REF captured. Do not move the phones.');}
 function zeroChange(){if(!lastOwn||!Number.isFinite(lastOwn.relativeYaw)){warn('No valid wheel angle to zero');return;}const d=lastOwn.relativeYaw;ownRef=ownRef;warn(`Change reference set: ${d.toFixed(2)}°. Tracking keeps absolute angles.`);}
-function init(){G=window.AlignGeometry;filters=window.AlignFilters?new window.AlignFilters.QualityPipeline():null;try{let c=JSON.parse(localStorage.getItem('aligncamV4intrinsic'));if(c?.fx&&c?.fy){ownCalibration=c;setText('calibStatus','Camera calibration: saved');}}catch(e){}initCar();loadSpecData();automaticMotionStart();cameraOn().catch(e=>warn('Camera permission: '+e.message));setStep(0);showOwn();showOther();summary();refreshPhoneLevels();setInterval(refreshPhoneLevels,180);ready=!!(window.Peer&&window.AR&&window.CV&&window.AlignGeometry);if(!window.AR||!window.CV||!window.AlignGeometry||!window.AlignFilters){setText('libStatus','Detector library failed');warn('Camera works, but tracking or filters failed to load. Reload while online.');}else{try{detector=new AR.Detector({dictionaryName:'ARUCO_4X4_1000',maxHammingDistance:1});ready=true;setText('libStatus','Tracker ready · 4×4/1000');}catch(e){ready=false;setText('libStatus','Tracker error');warn(e.message);}}
+function init(){G=window.AlignGeometry;window.ALIGN_PROFILE=localStorage.getItem('aligncamV47mode')||'LONG';if(!['LONG','OLD','CLASSIC'].includes(window.ALIGN_PROFILE))window.ALIGN_PROFILE='LONG';$('targetProfile').value=window.ALIGN_PROFILE;filters=window.AlignFilters?new window.AlignFilters.QualityPipeline():null;try{let c=JSON.parse(localStorage.getItem('aligncamV4intrinsic'));if(c?.fx&&c?.fy){ownCalibration=c;setText('calibStatus','Camera calibration: saved');}}catch(e){}initCar();loadSpecData();automaticMotionStart();cameraOn().catch(e=>warn('Camera permission: '+e.message));setStep(0);showOwn();showOther();summary();refreshPhoneLevels();setInterval(refreshPhoneLevels,180);ready=!!(window.Peer&&window.AR&&window.CV&&window.AlignGeometry);if(!window.AR||!window.CV||!window.AlignGeometry||!window.AlignFilters){setText('libStatus','Detector library failed');warn('Camera works, but tracking or filters failed to load. Reload while online.');}else{try{detector=new AR.Detector({dictionaryName:window.ALIGN_PROFILE==='CLASSIC'?'ARUCO':'ARUCO_4X4_1000',maxHammingDistance:1});ready=true;setText('libStatus','Tracker ready · 4×4/1000');}catch(e){ready=false;setText('libStatus','Tracker error');warn(e.message);}}
+ $('targetProfile').onchange=()=>selectTargetMode($('targetProfile').value);
+ $('zoomOutBtn').onclick=()=>setOpticalZoom(zoomNow-.35,true);
+ $('zoomInBtn').onclick=()=>setOpticalZoom(zoomNow+.35,true);
+ $('autoZoomBtn').onclick=()=>{autoOpticalZoom=!autoOpticalZoom;$('autoZoomBtn').textContent=autoOpticalZoom?'AUTO ZOOM ON':'AUTO ZOOM OFF';};
  $('hostBtn').onclick=makeRoom;$('joinBtn').onclick=joinRoom;$('disconnectBtn').onclick=clearPair;$('flipBtn').onclick=()=>flipCamera().catch(e=>warn(e.message));$('sensorBtn').onclick=enableGravity;$('nextBtn').onclick=()=>setStep(step+1);$('restartBtn').onclick=()=>{resetFilter();ownRef=null;otherRef=false;autoRefDone=false;wheelTargetZero=null;phoneZero=null;setStep(0);refreshPhoneLevels()};
  $('captureRefBtn').onclick=armReferenceBoth;
  $('zeroBtn').onclick=setWheelTargetZeroBoth;
