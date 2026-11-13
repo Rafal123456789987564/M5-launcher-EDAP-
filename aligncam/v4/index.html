@@ -244,9 +244,10 @@ async function initCameraOptics(){
  }else $('focusStatus').textContent='FOCUS: '+(settings.focusMode||'browser automatic');
  nextAutoZoom=Date.now()+4000;lowDetectionFrames=0;
 }
-function maybeAutoOpticalZoom(visible){
+function maybeAutoOpticalZoom(candidates){
  if(ownRef||step>=2)return;
- if(visible>=2){lowDetectionFrames=0;return;}
+ const visible=candidates.length,largest=candidates.reduce((max,m)=>Math.max(max,Math.max(...m.corners.map((p,i)=>Math.hypot(p.x-m.corners[(i+1)%4].x,p.y-m.corners[(i+1)%4].y)))),0);
+ if(visible>=(window.ALIGN_PROFILE==='CLASSIC'?1:2)&&largest>=55){lowDetectionFrames=0;return;}
  lowDetectionFrames++;
  if(!autoOpticalZoom||zoomHigh<=1.05||lowDetectionFrames<10||Date.now()<nextAutoZoom)return;
  if(zoomNow<zoomHigh-.09){setOpticalZoom(Math.min(zoomHigh,zoomNow+.4));lowDetectionFrames=0;}
@@ -447,7 +448,7 @@ function vertical(R){if(!R||!gravity||Date.now()-gravTime>2500)return {level:nul
 function ownRole(){return peerRole;}
 function expectedBoard(){return step===2?'REF':ownRole();}
 function meshHas(ids){return [...ids].filter(x=>G.boardType(x));}
-function qualityOf(fit){if(!fit)return 'NO TARGET';if(!fit.valid)return 'ACQUIRING';if(fit.mode==='CLASSIC')return 'FAIR';return fit.inliers>=2&&fit.error<2.7?'GOOD':'FAIR';}
+function qualityOf(fit){if(!fit)return 'NO TARGET';if(!fit.valid)return 'ACQUIRING';if(fit.mode==='CLASSIC')return 'FAIR';return fit.inliers>=2&&fit.error<2.7&&fit.largestSide>=46?'GOOD':'FAIR';}
 function qualityClass(x){return x==='GOOD'?'good':x==='WRONG TARGET'?'bad':'';}
 function effectiveCalibration(){
  if(!ownCalibration)return null;
@@ -556,8 +557,8 @@ function refreshSensorChips(){
  if(a){a.textContent=localLive?'SENSOR ON':'SENSOR OFF';a.classList.toggle('active',localLive);}
  if(b){b.textContent=remoteLive?'SENSOR ON':'SENSOR OFF';b.classList.toggle('active',remoteLive);}
 }
-function showOwn(){refreshSensorChips();refreshPhoneLevels();let c=peerRole==='LEFT'?'left':'right';const x=lastOwn;const frame=$(c+'Frame');frame.classList.toggle('good',x?.status==='GOOD'&&x?.filterStable&&!x?.mountWarning);frame.classList.toggle('bad',x?.status==='WRONG TARGET');frame.classList.toggle('warning',!!x?.mountWarning||['NO TARGET','LOW QUALITY','ACQUIRING','UNSTABLE','LIGHT FLICKER','STABILIZING','MOVING'].includes(x?.status));setBadge(c+'Quality',x?.status||'WAITING');setText(c+'Alert',x?.note||'Point this camera at the correct target');setText(c+'Toe',fnum(displayedToe(x)));setText(c+'Camber',fnum(x?.camber));setText(c+'Level',x?.levelText||'UNAVAILABLE');setText(c+'Error',Number.isFinite(x?.fit?.error)?x.fit.error.toFixed(1)+' px':'—');$(c+'Camber').className=x?.camber==null?'warn':'';$(c+'Level').className=x?.status==='WRONG TARGET'?'bad':x?.level!=null&&x.level<=3?'good':x?.level!=null?'bad':'warn';}
-function showOther(){refreshSensorChips();refreshPhoneLevels();let c=peerRole==='LEFT'?'right':'left';const x=lastOther;const frame=$(c+'Frame');frame.classList.toggle('good',x?.status==='GOOD'&&x?.filterStable&&!x?.mountWarning);frame.classList.toggle('bad',x?.status==='WRONG TARGET');frame.classList.toggle('warning',!!x?.mountWarning||['NO TARGET','LOW QUALITY','ACQUIRING','UNSTABLE','LIGHT FLICKER','STABILIZING','MOVING'].includes(x?.status));setBadge(c+'Quality',x?.status||'WAITING');setText(c+'Alert',x?.note||'Waiting for second phone');setText(c+'Toe',fnum(displayedToe(x)));setText(c+'Camber',fnum(x?.camber));setText(c+'Level',x?.levelText||'UNAVAILABLE');setText(c+'Error',Number.isFinite(x?.error)?x.error.toFixed(1)+' px':'—');$(c+'Level').className=x?.level!=null&&x.level<=3?'good':x?.level!=null?'bad':'warn';}
+function showOwn(){refreshSensorChips();refreshPhoneLevels();let c=peerRole==='LEFT'?'left':'right';const x=lastOwn;const frame=$(c+'Frame');frame.classList.toggle('good',x?.status==='GOOD'&&x?.filterStable&&!x?.mountWarning);frame.classList.toggle('bad',x?.status==='WRONG TARGET');frame.classList.toggle('warning',!!x?.mountWarning||['NO TARGET','LOW QUALITY','ACQUIRING','FAIR','UNSTABLE','LIGHT FLICKER','STABILIZING','MOVING'].includes(x?.status));setBadge(c+'Quality',x?.status||'WAITING');setText(c+'Alert',x?.note||'Point this camera at the correct target');setText(c+'Toe',fnum(displayedToe(x)));setText(c+'Camber',fnum(x?.camber));setText(c+'Level',x?.levelText||'UNAVAILABLE');setText(c+'Error',Number.isFinite(x?.fit?.error)?x.fit.error.toFixed(1)+' px':'—');$(c+'Camber').className=x?.camber==null?'warn':'';$(c+'Level').className=x?.status==='WRONG TARGET'?'bad':x?.level!=null&&x.level<=3?'good':x?.level!=null?'bad':'warn';}
+function showOther(){refreshSensorChips();refreshPhoneLevels();let c=peerRole==='LEFT'?'right':'left';const x=lastOther;const frame=$(c+'Frame');frame.classList.toggle('good',x?.status==='GOOD'&&x?.filterStable&&!x?.mountWarning);frame.classList.toggle('bad',x?.status==='WRONG TARGET');frame.classList.toggle('warning',!!x?.mountWarning||['NO TARGET','LOW QUALITY','ACQUIRING','FAIR','UNSTABLE','LIGHT FLICKER','STABILIZING','MOVING'].includes(x?.status));setBadge(c+'Quality',x?.status||'WAITING');setText(c+'Alert',x?.note||'Waiting for second phone');setText(c+'Toe',fnum(displayedToe(x)));setText(c+'Camber',fnum(x?.camber));setText(c+'Level',x?.levelText||'UNAVAILABLE');setText(c+'Error',Number.isFinite(x?.error)?x.error.toFixed(1)+' px':'—');$(c+'Level').className=x?.level!=null&&x.level<=3?'good':x?.level!=null?'bad':'warn';}
 function summary(){
  const L=peerRole==='LEFT'?lastOwn:lastOther,R=peerRole==='RIGHT'?lastOwn:lastOther;
  const l=displayedToe(L),r=displayedToe(R);
@@ -565,7 +566,7 @@ function summary(){
  const mountFault=!!L?.mountWarning||!!R?.mountWarning;
  const valid=!mountFault&&L?.status==='GOOD'&&R?.status==='GOOD'&&L?.filterStable&&R?.filterStable&&L?.ref&&R?.ref&&Number.isFinite(l)&&Number.isFinite(r);
  setText('sumToe',valid?fnum(l-r):'—');
- setText('sumReady',valid?'STABLE':mountFault?'CHECK MOUNT':(['UNSTABLE','LIGHT FLICKER'].includes(L?.status)||['UNSTABLE','LIGHT FLICKER'].includes(R?.status)?'UNSTABLE':'WAITING'));
+ setText('sumReady',valid?'STABLE':mountFault?'CHECK MOUNT':(['UNSTABLE','LIGHT FLICKER'].includes(L?.status)||['UNSTABLE','LIGHT FLICKER'].includes(R?.status)?'UNSTABLE':(L?.status==='FAIR'||R?.status==='FAIR')?'COARSE — OPTICAL ZOOM':'WAITING'));
  $('sumReady').className=valid?'good':'warn';
  if(valid){currentReadings[axle].LEFT=l;currentReadings[axle].RIGHT=r;}
 }
@@ -654,7 +655,7 @@ function calcMeasure(markers){
  result.relativeYaw=ownRef&&expectedType!=='REF'?G.relativeYaw(fit.R,ownRef):null;
  result.mountWarning=Number.isFinite(inclination.level)&&inclination.level>12;
  result.note='TRACKING '+expectedType+' · '+fit.inliers+'/'+countRequired+' TAGS · '+fit.error.toFixed(1)+' px'+(result.mountWarning?' · CHECK MOUNT ANGLE':'');
- if(fit.largestSide<36)result.note+=' · LIMITED PIXEL PRECISION';
+ if(fit.largestSide<46)result.note+=' · COARSE AT THIS DISTANCE — OPTICAL ZOOM NEEDED';
  return result;
 }
 function payload(r){let {status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,fit,ids,filterState,filterScatter,filterStable,filterMoving,mountWarning,targetFill}=r;return {mountWarning:!!mountWarning,targetFill:targetFill??null,phoneLevel:currentPhoneLevel(),targetZero:wheelTargetZero,sensorActive:!!gravity&&Date.now()-gravTime<2500,sensorSource,status,note,ref,relativeYaw,camber,level,levelText,frameWidth,frameHeight,filterState,filterScatter,filterStable,filterMoving,error:fit?.error??null,inliers:fit?.inliers??0,ids:ids||[],markers:(r.markers||[]).map(m=>({id:m.id,corners:m.corners.map(p=>({x:p.x,y:p.y}))}))};}
@@ -711,7 +712,7 @@ function analyzeFrame(){
    }
   }
   if(!roiOk)marks=detectWithFallback(img);
-  maybeAutoOpticalZoom(marks.filter(m=>G.boardType(m.id)===expectedBoard()).length);
+  maybeAutoOpticalZoom(marks.filter(m=>G.boardType(m.id)===expectedBoard()));
  }catch(e){warn('Tracking error: '+e.message);lastOwn=blockedFrame(lastOwn||{},'UNSTABLE','DETECTOR ERROR — CHECK LIGHTING');showOwn();summary();return;}
  const raw=calcMeasure(marks);
  let filtered=(filters||window.AlignFilters&& (filters=new window.AlignFilters.QualityPipeline()))?.process(raw,now)||raw;
